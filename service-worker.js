@@ -1,4 +1,4 @@
-const CACHE_NAME = "blockbilling-v1";
+const CACHE_NAME = "blockbilling-v2";
 const PRE_CACHE_RESOURCES = [
   "./",
   "./index.html",
