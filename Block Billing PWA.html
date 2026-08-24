@@ -980,7 +980,7 @@ function bindEvents() {
   inputIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      el.addEventListener('input', (e) => {
+      const updateHandler = (e) => {
         if (id === 'f-customer' || id === 'f-inwords') {
           const start = e.target.selectionStart;
           e.target.value = toTitleCase(e.target.value);
@@ -988,7 +988,9 @@ function bindEvents() {
         }
         updatePreview();
         saveCurrentForm();
-      });
+      };
+      el.addEventListener('input', updateHandler);
+      el.addEventListener('change', updateHandler);
     }
   });
 }
@@ -1761,16 +1763,26 @@ function updatePreview() {
 ────────────────────────────────────────────── */
 function formatDate(str) {
   if (!str) return '';
-  const [y,m,d] = str.split('-');
-  return `${d}/${m}/${y}`;
+  const parts = str.split('-');
+  if (parts.length === 3) {
+    const [y,m,d] = parts;
+    if (y && m && d) return `${d}/${m}/${y}`;
+  }
+  return str;
 }
 function formatTime(str) {
   if (!str) return '';
-  const [h,min] = str.split(':');
-  const hh = parseInt(h);
-  const ampm = hh >= 12 ? 'PM' : 'AM';
-  const hr = hh % 12 || 12;
-  return `${hr}:${min} ${ampm}`;
+  const parts = str.split(':');
+  if (parts.length >= 2) {
+    const [h,min] = parts;
+    const hh = parseInt(h, 10);
+    if (!isNaN(hh)) {
+      const ampm = hh >= 12 ? 'PM' : 'AM';
+      const hr = hh % 12 || 12;
+      return `${hr}:${min} ${ampm}`;
+    }
+  }
+  return str;
 }
 function escHtml(str) {
   return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
