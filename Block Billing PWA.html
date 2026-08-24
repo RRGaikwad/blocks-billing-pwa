@@ -587,6 +587,10 @@
 
       <div class="section-label">Toggles</div>
       <div class="field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <input type="checkbox" id="f-toggle-seller" onchange="onToggleSeller(this.checked)" style="width:auto; margin:0; cursor:pointer;"/>
+        <label for="f-toggle-seller" style="margin:0; font-weight:600; cursor:pointer;">Seller Details Mode</label>
+      </div>
+      <div class="field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
         <input type="checkbox" id="f-toggle-gst" onchange="onToggleGST(this.checked)" style="width:auto; margin:0; cursor:pointer;"/>
         <label for="f-toggle-gst" style="margin:0; font-weight:600; cursor:pointer;">Full GST Invoice Mode</label>
       </div>
@@ -599,35 +603,37 @@
         <label for="f-toggle-watermark" style="margin:0; font-weight:600; cursor:pointer;">Show Watermark</label>
       </div>
 
-      <div class="section-label">Seller Details</div>
-      <div class="field">
-        <label>Company Name</label>
-        <input type="text" id="f-seller-name" placeholder="Company Name"/>
-      </div>
-      <div class="field">
-        <label>Address Line 1</label>
-        <input type="text" id="f-seller-addr1" placeholder="Someshwar Sugar Factory road"/>
-      </div>
-      <div class="field">
-        <label>Address Line 2</label>
-        <input type="text" id="f-seller-addr2" placeholder="Someshwarnagar"/>
-      </div>
-      <div class="field">
-        <label>Address Line 3</label>
-        <input type="text" id="f-seller-addr3" placeholder="Tal: BARAMATI, Dist: PUNE"/>
-      </div>
-      <div class="field">
-        <label>Phone Number(s)</label>
-        <input type="text" id="f-seller-phone" placeholder="8888503109 / 9765338027"/>
-      </div>
-      <div class="field">
-        <label>Email Address</label>
-        <input type="text" id="f-seller-email" placeholder="ramarts1222@gmail.com"/>
-      </div>
-      <div id="seller-gstin-container" style="display:none;">
+      <div id="seller-details-form-section" style="display:none;">
+        <div class="section-label">Seller Details</div>
         <div class="field">
-          <label>Seller GSTIN</label>
-          <input type="text" id="f-seller-gstin" placeholder="e.g. 27AAAAA0000A1Z5"/>
+          <label>Company Name</label>
+          <input type="text" id="f-seller-name" placeholder="Company Name"/>
+        </div>
+        <div class="field">
+          <label>Address Line 1</label>
+          <input type="text" id="f-seller-addr1" placeholder="Someshwar Sugar Factory road"/>
+        </div>
+        <div class="field">
+          <label>Address Line 2</label>
+          <input type="text" id="f-seller-addr2" placeholder="Someshwarnagar"/>
+        </div>
+        <div class="field">
+          <label>Address Line 3</label>
+          <input type="text" id="f-seller-addr3" placeholder="Tal: BARAMATI, Dist: PUNE"/>
+        </div>
+        <div class="field">
+          <label>Phone Number(s)</label>
+          <input type="text" id="f-seller-phone" placeholder="8888503109 / 9765338027"/>
+        </div>
+        <div class="field">
+          <label>Email Address</label>
+          <input type="text" id="f-seller-email" placeholder="ramarts1222@gmail.com"/>
+        </div>
+        <div id="seller-gstin-container" style="display:none;">
+          <div class="field">
+            <label>Seller GSTIN</label>
+            <input type="text" id="f-seller-gstin" placeholder="e.g. 27AAAAA0000A1Z5"/>
+          </div>
         </div>
       </div>
 
@@ -851,6 +857,7 @@ const CONFIG = {
 /* ──────────────────────────────────────────────
    DATA STATE
 ────────────────────────────────────────────── */
+let sellerDetailsOn = false;
 let gstModeOn = false;
 let transportModeOn = false;
 let interstateOn = false;
@@ -993,6 +1000,13 @@ function toTitleCase(str) {
 /* ──────────────────────────────────────────────
    TOGGLE ACTIONS
 ────────────────────────────────────────────── */
+function onToggleSeller(checked) {
+  sellerDetailsOn = checked;
+  document.getElementById('seller-details-form-section').style.display = checked ? 'block' : 'none';
+  updatePreview();
+  saveCurrentForm();
+}
+
 function onToggleGST(checked) {
   gstModeOn = checked;
   toggleGSTModeElements(checked);
@@ -1035,6 +1049,7 @@ function onToggleInterstate(checked) {
 ────────────────────────────────────────────── */
 function saveCurrentForm() {
   const formData = {
+    sellerDetailsOn,
     gstModeOn,
     transportModeOn,
     watermarkOn: document.getElementById('f-toggle-watermark').checked,
@@ -1073,15 +1088,18 @@ function loadCurrentForm() {
   if (saved) {
     const data = JSON.parse(saved);
     
+    sellerDetailsOn = data.sellerDetailsOn || false;
     gstModeOn = data.gstModeOn || false;
     transportModeOn = data.transportModeOn || false;
     interstateOn = data.interstateOn || false;
     
+    document.getElementById('f-toggle-seller').checked = sellerDetailsOn;
     document.getElementById('f-toggle-gst').checked = gstModeOn;
     document.getElementById('f-toggle-transport').checked = transportModeOn;
     document.getElementById('f-toggle-watermark').checked = data.watermarkOn !== false;
     document.getElementById('f-interstate').checked = interstateOn;
     
+    document.getElementById('seller-details-form-section').style.display = sellerDetailsOn ? 'block' : 'none';
     toggleGSTModeElements(gstModeOn);
     toggleTransportModeElements(transportModeOn);
     onToggleWatermark(data.watermarkOn !== false);
@@ -1170,6 +1188,7 @@ function saveToHistory() {
     time: document.getElementById('f-time').value,
     inwords: document.getElementById('f-inwords').value,
     
+    sellerDetailsOn,
     gstModeOn,
     transportModeOn,
     interstateOn,
@@ -1270,15 +1289,18 @@ function loadInvoice(id) {
     document.getElementById('f-customer').value = inv.customer;
     document.getElementById('f-inwords').value = inv.inwords || '';
     
+    sellerDetailsOn = inv.sellerDetailsOn || false;
     gstModeOn = inv.gstModeOn || false;
     transportModeOn = inv.transportModeOn || false;
     interstateOn = inv.interstateOn || false;
     
+    document.getElementById('f-toggle-seller').checked = sellerDetailsOn;
     document.getElementById('f-toggle-gst').checked = gstModeOn;
     document.getElementById('f-toggle-transport').checked = transportModeOn;
     document.getElementById('f-toggle-watermark').checked = inv.watermarkOn !== false;
     document.getElementById('f-interstate').checked = interstateOn;
     
+    document.getElementById('seller-details-form-section').style.display = sellerDetailsOn ? 'block' : 'none';
     toggleGSTModeElements(gstModeOn);
     toggleTransportModeElements(transportModeOn);
     onToggleWatermark(inv.watermarkOn !== false);
@@ -1325,14 +1347,17 @@ function resetForm(internal = false) {
   document.getElementById('f-date').value = now.toISOString().slice(0,10);
   document.getElementById('f-time').value = now.toTimeString().slice(0,5);
   
+  sellerDetailsOn = false;
   gstModeOn = false;
   transportModeOn = false;
   interstateOn = false;
+  document.getElementById('f-toggle-seller').checked = false;
   document.getElementById('f-toggle-gst').checked = false;
   document.getElementById('f-toggle-transport').checked = false;
   document.getElementById('f-toggle-watermark').checked = true;
   document.getElementById('f-interstate').checked = false;
   
+  document.getElementById('seller-details-form-section').style.display = 'none';
   toggleGSTModeElements(false);
   toggleTransportModeElements(false);
   onToggleWatermark(true);
@@ -1474,59 +1499,6 @@ function updateItem(i, field, val, el) {
   amtCell.textContent = amount > 0 ? '₹' + amount.toFixed(2) : '—';
   
   saveCurrentForm();
-}
-
-function addItem() {
-  items.push({ grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' });
-  renderSidebarItems();
-  updatePreview();
-}
-
-function removeItem(i) {
-  if (items.length === 1) { 
-    items[0] = { grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }; 
-  } else {
-    items.splice(i, 1);
-  }
-  renderSidebarItems();
-  updatePreview();
-}
-
-function calcAmount(item) {
-  const p = parseFloat(item.price);
-  const u = parseFloat(item.units);
-  const discountR = parseFloat(item.discountRate);
-
-  if (isNaN(p) || isNaN(u)) return 0;
-
-  let baseAmount = p * u;
-
-  let discountAmount = 0;
-  if (!isNaN(discountR) && discountR > 0) {
-    discountAmount = baseAmount * (discountR / 100);
-    baseAmount -= discountAmount;
-  }
-  item.discountAmount = discountAmount.toFixed(2);
-
-  let gstR = 0;
-  if (gstModeOn) {
-    if (interstateOn) {
-      gstR = parseFloat(item.igstRate) || 0;
-    } else {
-      gstR = (parseFloat(item.cgstRate) || 0) + (parseFloat(item.sgstRate) || 0);
-    }
-  } else {
-    gstR = parseFloat(item.gstRate) || 0;
-  }
-
-  let gstAmount = 0;
-  if (gstR > 0) {
-    gstAmount = baseAmount * (gstR / 100);
-    baseAmount += gstAmount;
-  }
-  item.gstAmount = gstAmount.toFixed(2);
-
-  return baseAmount;
 }
 
 /* ──────────────────────────────────────────────
@@ -1803,7 +1775,6 @@ function escHtml(str) {
   return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// Number → Indian words
 function numberToWords(num) {
   if (num === 0) return 'Zero';
   const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
