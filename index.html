@@ -1,0 +1,2010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="icon" type="image/png" href="Block%20Billing%20PWA%20Icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#b5410a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Block Billing PWA – Invoice Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  /* ── RESET & TOKENS ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink:   #1a1a1a;
+    --mid:   #444;
+    --light: #888;
+    --line:  #222;
+    --bg:    #f5f0eb;
+    --panel: #ffffff;
+    --accent:#b5410a;
+    --radius:10px;
+    --ff-head: 'Playfair Display', serif;
+    --ff-body: 'EB Garamond', serif;
+    --ff-ui:   'Source Sans 3', sans-serif;
+    --ff-mono: 'Montserrat', sans-serif;
+  }
+
+  body {
+    font-family: var(--ff-ui);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  /* ── APP SHELL ── */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── SIDEBAR FORM ── */
+  .sidebar {
+    width: 480px; min-width: 420px;
+    background: var(--panel);
+    border-right: 1px solid #ddd;
+    display: flex; flex-direction: column;
+    height: 100%;
+    z-index: 100;
+  }
+  
+  /* ── HISTORY DRAWER ── */
+  .history-drawer {
+    position: fixed; top: 0; left: -480px; width: 480px; height: 100vh;
+    background: var(--panel); border-right: 1px solid #ddd;
+    z-index: 200; transition: left 0.3s ease;
+    display: flex; flex-direction: column;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+  }
+  .history-drawer.open { left: 0; }
+  .history-header {
+    background: var(--ink); color: #fff;
+    padding: 22px 24px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .history-header h2 { font-family: var(--ff-head); font-size: 1.2rem; }
+  .btn-close-history { background: none; border: none; color: #fff; cursor: pointer; font-size: 1.5rem; }
+  
+  .history-body { padding: 20px; flex: 1; overflow-y: auto; }
+  .history-search { margin-bottom: 20px; }
+  
+  .history-item {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 12px; margin-bottom: 12px; cursor: pointer;
+    transition: all 0.2s; position: relative;
+  }
+  .history-item:hover { border-color: var(--accent); background: #fff; }
+  .history-item-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+  .history-item-mid { font-size: 0.8rem; color: var(--mid); margin-bottom: 4px; }
+  .history-item-bottom { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--light); }
+  .btn-delete-history {
+    position: absolute; top: 8px; right: 8px;
+    background: #fee2e2; border: none; color: #ef4444;
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; opacity: 0; transition: opacity 0.2s;
+  }
+  .history-item:hover .btn-delete-history { opacity: 1; }
+  
+  .overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.4); z-index: 150;
+    display: none;
+  }
+  .overlay.show { display: block; }
+
+  .sidebar-header {
+    background: var(--ink);
+    color: #fff;
+    padding: 22px 24px 18px;
+  }
+  .sidebar-actions {
+    display: flex; gap: 8px; margin-top: 12px;
+  }
+  .btn-action {
+    flex: 1; padding: 6px; border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px; background: rgba(255,255,255,0.1);
+    color: #fff; font-size: 0.75rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    transition: background 0.2s;
+  }
+  .btn-action:hover { background: rgba(255,255,255,0.2); }
+  
+  .sidebar-header h1 { font-family: var(--ff-head); font-size: 1.25rem; letter-spacing: .5px; }
+  .sidebar-header p  { font-size: .8rem; opacity: .65; margin-top: 3px; }
+
+  .form-body { padding: 20px 20px 24px; flex: 1; overflow-y: auto; }
+
+  .section-label {
+    font-size: .68rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1.2px; color: var(--accent);
+    margin: 20px 0 8px;
+    padding-bottom: 4px; border-bottom: 1px solid #eee;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: .78rem; color: var(--mid); margin-bottom: 5px; font-weight: 600; }
+  .field input, .field textarea, .field select {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid #d5d5d5; border-radius: 8px;
+    font-family: var(--ff-ui); font-size: .92rem; color: var(--ink);
+    background: #fafafa; transition: all 0.2s;
+  }
+  .field input:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent); background: #fff;
+    box-shadow: 0 0 0 3px rgba(181, 65, 10, 0.1);
+  }
+  .field textarea { resize: vertical; min-height: 56px; }
+
+  /* items table in sidebar */
+  .items-head {
+    display: none;
+  }
+  .item-row {
+    background: #fdfdfd;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: box-shadow 0.2s;
+  }
+  .item-row:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: #cbd5e1; }
+  
+  .item-row-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .item-row .sno {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: #fff1f2;
+    padding: 4px 8px;
+    border-radius: 6px;
+    min-width: 28px;
+    text-align: center;
+  }
+  .item-row-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 12px;
+  }
+  .item-row-notes {
+    margin-top: 8px;
+  }
+  .item-row-notes input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #d5d5d5;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    color: var(--ink);
+    background: #fafafa;
+    font-family: var(--ff-ui);
+    transition: all 0.2s;
+  }
+  .item-row-notes input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(181, 65, 10, 0.1);
+  }
+  .item-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .item-field-group label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--light);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 0;
+  }
+  .item-row input, .item-row select {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid #d5d5d5; border-radius: 6px;
+    font-size: 0.88rem; color: var(--ink); background: #fafafa;
+    font-family: var(--ff-ui);
+    transition: all 0.2s;
+  }
+  .item-row input:focus, .item-row select:focus { outline: none; border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgba(181, 65, 10, 0.1); }
+  
+  .item-row .amt-cell {
+    font-size: 0.95rem; color: var(--ink);
+    font-weight: 700;
+    padding-top: 6px;
+  }
+  .btn-remove {
+    background: #f1f5f9; border: none; cursor: pointer;
+    color: #94a3b8; font-size: 1.2rem; line-height: 1;
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    margin-left: auto;
+  }
+  .btn-remove:hover { color: #e53e3e; background: #fee2e2; transform: rotate(90deg); }
+  .btn-add {
+    margin-top: 10px; padding: 12px 14px;
+    border: 2px dashed #cbd5e1; border-radius: 10px;
+    background: #f8fafc; cursor: pointer;
+    font-size: .9rem; color: var(--mid);
+    font-family: var(--ff-ui); font-weight: 600;
+    width: 100%;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-add:hover { border-color: var(--accent); color: var(--accent); background: #fff; }
+
+  /* download buttons */
+  .dl-btns {
+    padding: 16px 20px 20px;
+    border-top: 1px solid #eee;
+    display: flex; gap: 10px;
+  }
+  .btn-dl {
+    flex: 1; padding: 11px 0;
+    border: none; border-radius: 8px;
+    font-family: var(--ff-ui); font-size: .88rem; font-weight: 600;
+    cursor: pointer; transition: opacity .2s, transform .1s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-dl:active { transform: scale(.97); }
+  .btn-pdf { background: var(--ink); color: #fff; }
+  .btn-jpg { background: var(--accent); color: #fff; }
+  .btn-dl:hover { opacity: .88; }
+
+  /* ── PREVIEW AREA ── */
+  .preview-area {
+    flex: 1; padding: 20px;
+    display: flex; flex-direction: column; align-items: center;
+    background: #d1d5db;
+    overflow: auto;
+    min-width: 0;
+    position: relative;
+  }
+  .preview-controls {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(255,255,255,0.9);
+    padding: 8px 16px; border-radius: 20px;
+    margin-bottom: 20px;
+    display: flex; gap: 15px; align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    backdrop-filter: blur(4px);
+  }
+  .zoom-btn {
+    background: none; border: 1px solid #ccc;
+    width: 28px; height: 28px; border-radius: 50%;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; color: var(--ink);
+  }
+  .zoom-btn:hover { background: #f3f4f6; }
+  .zoom-text { font-size: 0.8rem; font-weight: 600; min-width: 45px; text-align: center; }
+
+  .preview-label {
+    font-size: .65rem; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: #666; margin-bottom: 0;
+  }
+
+  /* ── INVOICE SHEET ── */
+  #invoice {
+    width: 794px;            /* A4 at 96dpi */
+    min-height: 1123px;
+    background: #fff;
+    padding: 48px 56px 52px;
+    box-shadow: 0 10px 50px rgba(0,0,0,.25);
+    font-family: var(--ff-body);
+    color: var(--ink);
+    position: relative;
+    transform-origin: top center;
+    margin-bottom: 40px;
+  }
+
+  /* watermark */
+  .inv-watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-35deg);
+    font-size: 6.5rem;
+    font-family: var(--ff-head);
+    color: rgba(0, 0, 0, 0.04);
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+    z-index: 0;
+  }
+
+  /* header */
+  .inv-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--line);
+  }
+  .inv-logo-block { display: flex; flex-direction: column; align-items: center; }
+  .logo-subtext {
+    font-family: var(--ff-head);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 5px;
+    letter-spacing: 1px;
+    color: var(--ink);
+  }
+
+  .inv-addr {
+    text-align: right; font-size: .83rem; line-height: 1.65;
+  }
+  .inv-addr strong { font-size: .9rem; font-weight: 600; }
+
+  /* invoice title + date */
+  .inv-title-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin: 22px 0 18px;
+  }
+  .inv-title {
+    font-family: var(--ff-head);
+    font-size: 1.6rem; font-weight: 700;
+    flex: 1; text-align: center;
+  }
+  .inv-date-block { text-align: right; min-width: 160px; }
+  .inv-date-block .dl { font-size: .85rem; }
+  .inv-date-block .dv {
+    font-size: .88rem; font-weight: 600;
+    display: inline-block; min-width: 100px;
+    border-bottom: 1px solid #bbb;
+    padding-bottom: 1px; margin-left: 4px;
+  }
+
+  /* customer */
+  .inv-customer { margin-bottom: 22px; }
+  .inv-customer .mr {
+    font-size: .92rem; margin-bottom: 6px;
+  }
+  .inv-customer .mr span {
+    border-bottom: 1px solid #aaa;
+    display: inline-block; min-width: 260px; padding-bottom: 1px;
+  }
+  .inv-customer .contact { font-size: .85rem; margin-top: 6px; line-height: 1.7; }
+
+  /* transport details */
+  <div id="p-transport-block" style="display:none; margin-bottom: 22px; font-size: 0.85rem; border-top: 1px dashed #ccc; padding-top: 10px;">
+    <table style="width:100%; border-collapse: collapse;">
+      <tr>
+        <td style="width:50%; vertical-align:top;">
+          <b>Delivery Address:</b><br>
+          <span id="p-trans-addr" style="white-space: pre-line;"></span>
+        </td>
+        <td style="width:50%; vertical-align:top; padding-left: 20px;">
+          <b>Vehicle Number:</b> <span id="p-trans-veh"></span><br>
+          <b>Driver Name & Contact:</b> <span id="p-trans-driver"></span>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  /* items table */
+  .inv-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+  .inv-table thead tr th {
+    font-family: var(--ff-body); font-weight: 600;
+    font-size: .85rem; padding: 8px 6px;
+    border-bottom: 1.5px solid var(--line);
+    text-align: left;
+  }
+  .inv-table tbody tr td {
+    padding: 8px 6px; font-size: .83rem;
+    border-bottom: 1px solid #eee; vertical-align: top;
+  }
+  .inv-table tbody tr:last-child td { border-bottom: none; }
+
+  /* total block */
+  .inv-total-row {
+    margin-top: 10px;
+    padding-top: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .inv-total-label {
+    font-family: var(--ff-mono); font-size: 1.1rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .inv-total-value {
+    font-family: var(--ff-mono); font-size: 1.25rem; font-weight: 700;
+    color: var(--ink);
+  }
+  .inv-inwords {
+    font-size: .88rem; margin-top: 15px; line-height: 1.7;
+  }
+  .inv-inwords .underline {
+    display: inline-block; border-bottom: 1px solid #aaa;
+    min-width: 260px; padding-bottom: 1px; margin: 0 3px;
+  }
+
+  /* footer */
+  .inv-footer-note {
+    margin-top: 30px; font-size: 0.88rem;
+    color: var(--mid);
+    padding-left: 48px;
+    font-style: italic;
+  }
+  .inv-sig-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-top: 60px; font-size: .85rem;
+  }
+  .inv-sig-block { min-width: 180px; }
+  .inv-sig-block .sig-line {
+    width: 180px; border-top: 1.5px solid var(--ink);
+    margin: 40px 0 5px 0;
+  }
+  .inv-sig-block.receiver .sig-line {
+    margin-left: auto;
+  }
+  .inv-sig-block .sig-label { font-size: .9rem; font-weight: 600; }
+  .inv-sig-block .sig-sub { font-weight: 600; font-size: .82rem; margin-top: 0; }
+
+  /* spacer rows in table */
+  .inv-table tbody .empty-row td { height: 28px; }
+
+  /* ── SCROLLBAR ── */
+  .sidebar::-webkit-scrollbar { width: 5px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff;
+    padding: 10px 24px; border-radius: 24px;
+    font-size: .85rem; font-family: var(--ff-ui);
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+    z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 900px) {
+    .app { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; min-width: 0; height: auto; }
+    .history-drawer { width: 100%; left: -100%; }
+    .history-drawer.open { left: 0; }
+    .preview-area { padding: 20px 10px; min-height: 500px; height: auto; overflow: visible; }
+    #invoice { transform-origin: top center; }
+  }
+
+  @media (max-width: 480px) {
+    .item-row-inputs {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .dl-btns {
+      flex-direction: column;
+    }
+  }
+
+  /* ── PRINT STYLES ── */
+  @media print {
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    body {
+      background: #fff;
+    }
+    .sidebar, .preview-label, .preview-controls, #toast, .overlay, .history-drawer {
+      display: none !important;
+    }
+    .app {
+      display: block;
+      height: auto;
+      overflow: visible;
+    }
+    .preview-area {
+      padding: 0;
+      background: #fff;
+      overflow: visible;
+      display: block;
+    }
+    #invoice {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      box-shadow: none;
+      transform: none !important;
+    }
+    .inv-table tr {
+      page-break-inside: avoid;
+    }
+    .inv-header, .inv-title-row, .inv-customer, #p-totals-section, .inv-sig-row {
+      page-break-inside: avoid;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ══ HISTORY DRAWER ══ -->
+  <div class="overlay" id="overlay" onclick="toggleHistory()"></div>
+  <div class="history-drawer" id="history-drawer">
+    <div class="history-header">
+      <h2>Invoice History</h2>
+      <button class="btn-close-history" onclick="toggleHistory()">×</button>
+    </div>
+    <div class="history-body">
+      <div class="field history-search">
+        <input type="text" placeholder="Search by number or customer..." oninput="searchHistory(this.value)"/>
+      </div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1 id="sidebar-app-title">Block Billing PWA</h1>
+      <p>Fill the form · Preview live · Download</p>
+      
+      <div class="sidebar-actions">
+        <button class="btn-action" onclick="saveToHistory()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save
+        </button>
+        <button class="btn-action" onclick="toggleHistory()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          History
+        </button>
+        <button class="btn-action" onclick="resetForm()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Reset
+        </button>
+      </div>
+    </div>
+
+    <div class="form-body">
+
+      <div class="section-label">Invoice Info</div>
+      <div class="field">
+        <label>Invoice Number</label>
+        <input type="text" id="f-inv-no" placeholder="e.g. BB-001"/>
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="f-date"/>
+      </div>
+      <div class="field">
+        <label>Time</label>
+        <input type="time" id="f-time"/>
+      </div>
+
+      <div class="section-label">Toggles</div>
+      <div class="field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <input type="checkbox" id="f-toggle-gst" onchange="onToggleGST(this.checked)" style="width:auto; margin:0; cursor:pointer;"/>
+        <label for="f-toggle-gst" style="margin:0; font-weight:600; cursor:pointer;">Full GST Invoice Mode</label>
+      </div>
+      <div class="field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <input type="checkbox" id="f-toggle-transport" onchange="onToggleTransport(this.checked)" style="width:auto; margin:0; cursor:pointer;"/>
+        <label for="f-toggle-transport" style="margin:0; font-weight:600; cursor:pointer;">Transport & Delivery Details</label>
+      </div>
+      <div class="field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
+        <input type="checkbox" id="f-toggle-watermark" checked onchange="onToggleWatermark(this.checked)" style="width:auto; margin:0; cursor:pointer;"/>
+        <label for="f-toggle-watermark" style="margin:0; font-weight:600; cursor:pointer;">Show Watermark</label>
+      </div>
+
+      <div class="section-label">Seller Details</div>
+      <div class="field">
+        <label>Company Name</label>
+        <input type="text" id="f-seller-name" placeholder="Company Name"/>
+      </div>
+      <div class="field">
+        <label>Address Line 1</label>
+        <input type="text" id="f-seller-addr1" placeholder="Someshwar Sugar Factory road"/>
+      </div>
+      <div class="field">
+        <label>Address Line 2</label>
+        <input type="text" id="f-seller-addr2" placeholder="Someshwarnagar"/>
+      </div>
+      <div class="field">
+        <label>Address Line 3</label>
+        <input type="text" id="f-seller-addr3" placeholder="Tal: BARAMATI, Dist: PUNE"/>
+      </div>
+      <div class="field">
+        <label>Phone Number(s)</label>
+        <input type="text" id="f-seller-phone" placeholder="8888503109 / 9765338027"/>
+      </div>
+      <div class="field">
+        <label>Email Address</label>
+        <input type="text" id="f-seller-email" placeholder="ramarts1222@gmail.com"/>
+      </div>
+      <div id="seller-gstin-container" style="display:none;">
+        <div class="field">
+          <label>Seller GSTIN</label>
+          <input type="text" id="f-seller-gstin" placeholder="e.g. 27AAAAA0000A1Z5"/>
+        </div>
+      </div>
+
+      <div class="section-label">Customer</div>
+      <div class="field">
+        <label>Mr / Ms. (Customer Name)</label>
+        <input type="text" id="f-customer" placeholder="Customer name"/>
+      </div>
+      <div class="field">
+        <label>Contact Person (optional)</label>
+        <input type="text" id="f-cust-contact" placeholder="e.g. Mr.- Swapnil Gaikwad"/>
+      </div>
+      <div class="field">
+        <label>Contact Phone (optional)</label>
+        <input type="text" id="f-cust-phone" placeholder="e.g. +91 8888503109"/>
+      </div>
+      <div id="buyer-gstin-container" style="display:none;">
+        <div class="field">
+          <label>Buyer GSTIN (optional)</label>
+          <input type="text" id="f-buyer-gstin" placeholder="Buyer's GSTIN"/>
+        </div>
+        <div class="field" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+          <input type="checkbox" id="f-interstate" onchange="onToggleInterstate(this.checked)" style="width:auto; margin:0; cursor:pointer;"/>
+          <label for="f-interstate" style="margin:0; font-weight:600; cursor:pointer;">Interstate (IGST)</label>
+        </div>
+      </div>
+
+      <div id="transport-container" style="display:none;">
+        <div class="section-label">Transport & Delivery</div>
+        <div class="field">
+          <label>Vehicle/Truck Number</label>
+          <input type="text" id="f-trans-veh" placeholder="e.g. MH-42-A-1234"/>
+        </div>
+        <div class="field">
+          <label>Transport/Freight Charges (₹)</label>
+          <input type="number" id="f-trans-freight" placeholder="0.00" min="0" step="0.01"/>
+        </div>
+        <div class="field">
+          <label>Delivery Address</label>
+          <textarea id="f-trans-addr" placeholder="Delivery site address..."></textarea>
+        </div>
+        <div class="field">
+          <label>Driver Name & Contact</label>
+          <input type="text" id="f-trans-driver" placeholder="e.g. Ramesh (9876543210)"/>
+        </div>
+      </div>
+
+      <div class="section-label">Items</div>
+      <div class="items-head">
+        <span>#</span><span>Description</span><span>Price</span><span>Qty</span><span>Amt</span>
+      </div>
+      <div id="items-container"></div>
+      <button class="btn-add" onclick="addItem()">+ Add Item</button>
+
+      <div class="section-label">Summary</div>
+      <div class="field">
+        <label>Amount in Words (auto-filled, editable)</label>
+        <input type="text" id="f-inwords" placeholder="e.g. Five Hundred Only"/>
+      </div>
+
+    </div>
+
+    <div class="dl-btns">
+      <button class="btn-dl btn-pdf" onclick="downloadPDF()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        PDF
+      </button>
+      <button class="btn-dl btn-jpg" onclick="downloadJPG()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        JPG
+      </button>
+      <button class="btn-dl btn-print" onclick="printInvoice()" style="background: #4b5563; color: #fff;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══ PREVIEW ══ -->
+  <main class="preview-area">
+    <div class="preview-controls">
+      <span class="preview-label">Preview</span>
+      <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+      <span class="zoom-text" id="zoom-val">100%</span>
+      <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+      <button class="btn-action" style="padding: 4px 10px; color: var(--ink); border-color: #ccc; background: none;" onclick="fitToWidth()">Fit Width</button>
+      <button class="btn-action" style="padding: 4px 10px; color: var(--ink); border-color: #ccc; background: none;" onclick="fitToPage()">Fit Page</button>
+    </div>
+
+    <div id="invoice">
+      <div class="inv-watermark" id="p-watermark">BLOCK BILLING PWA</div>
+
+      <!-- HEADER -->
+      <div class="inv-header">
+        <div class="inv-logo-block">
+          <img src="Block%20Billing%20PWA%20Icon.png" id="p-logo" alt="Logo" style="height: 100px; width: auto;">
+          <div class="logo-subtext" id="p-logo-subtext"></div>
+        </div>
+        <div class="inv-addr" id="p-seller-addr-block"></div>
+      </div>
+
+      <!-- TITLE + DATE -->
+      <div class="inv-title-row">
+        <div style="width:160px">
+          <div class="dl">Inv No : <span class="dv" id="p-inv-no"></span></div>
+        </div>
+        <div class="inv-title">Invoice</div>
+        <div class="inv-date-block">
+          <div class="dl">Date : <span class="dv" id="p-date"></span></div>
+          <div class="dl" style="margin-top:4px">Time : <span class="dv" id="p-time"></span></div>
+        </div>
+      </div>
+
+      <!-- CUSTOMER -->
+      <div class="inv-customer">
+        <div class="mr"><b>Mr/Ms.</b> <span id="p-customer"></span></div>
+        <div class="contact"></div>
+      </div>
+
+      <!-- TRANSPORT DETAILS -->
+      <div id="p-transport-block" style="display:none; margin-bottom: 22px; font-size: 0.85rem; border-top: 1px dashed #ccc; padding-top: 10px;">
+        <table style="width:100%; border-collapse: collapse;">
+          <tr>
+            <td style="width:50%; vertical-align:top;">
+              <b>Delivery Address:</b><br>
+              <span id="p-trans-addr" style="white-space: pre-line;"></span>
+            </td>
+            <td style="width:50%; vertical-align:top; padding-left: 20px;">
+              <b>Vehicle Number:</b> <span id="p-trans-veh"></span><br>
+              <b>Driver Name & Contact:</b> <span id="p-trans-driver"></span>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- ITEMS TABLE -->
+      <table class="inv-table">
+        <thead>
+          <!-- Dynamically populated -->
+        </thead>
+        <tbody id="p-items"></tbody>
+      </table>
+
+      <!-- GST Breakup Table (dynamic) -->
+      <div id="p-gst-summary-wrapper" style="display:none; margin-top:15px; border: 1px solid #ccc; padding: 10px; border-radius: 4px;">
+        <h4 style="font-size: 0.82rem; margin-bottom: 5px; font-family: var(--ff-mono);">Tax Breakup Summary</h4>
+        <table style="width:100%; border-collapse: collapse; font-size:0.78rem;">
+          <thead>
+            <tr style="border-bottom:1px solid #aaa;">
+              <th style="text-align:left; padding:4px;">Taxable Value</th>
+              <th id="p-gst-summary-hdr-cgst" style="text-align:right; padding:4px;">CGST Amt</th>
+              <th id="p-gst-summary-hdr-sgst" style="text-align:right; padding:4px;">SGST Amt</th>
+              <th id="p-gst-summary-hdr-igst" style="text-align:right; padding:4px; display:none;">IGST Amt</th>
+              <th style="text-align:right; padding:4px;">Total Tax</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="p-gst-summary-taxable" style="padding:4px;">Rs. 0.00</td>
+              <td id="p-gst-summary-cgst" style="text-align:right; padding:4px;">Rs. 0.00</td>
+              <td id="p-gst-summary-sgst" style="text-align:right; padding:4px;">Rs. 0.00</td>
+              <td id="p-gst-summary-igst" style="text-align:right; padding:4px; display:none;">Rs. 0.00</td>
+              <td id="p-gst-summary-total-tax" style="text-align:right; padding:4px; font-weight:700;">Rs. 0.00</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TOTAL -->
+      <div id="p-totals-section" style="border-top: 2px solid var(--line); margin-top: 10px; padding-top: 10px;">
+        <div id="p-freight-row" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 0.95rem;">
+          <div>Transport / Freight Charges</div>
+          <div id="p-freight-value">Rs. 0.00</div>
+        </div>
+        <div class="inv-total-row" style="border-top: none; margin-top: 0; padding-top: 0; display: flex; justify-content: space-between; align-items: center;">
+          <div class="inv-total-label">Total</div>
+          <div class="inv-total-value" id="p-total">Rs. 0.00</div>
+        </div>
+      </div>
+
+      <!-- IN WORDS -->
+      <div class="inv-inwords">
+        ( In Words Rupees <span class="underline" id="p-inwords"></span> only )
+      </div>
+
+      <!-- NOTE -->
+      <div class="inv-footer-note">
+        If you require any further information or need any clarification please feel free to contact us.
+        <br><b>Yours truly.</b>
+      </div>
+
+      <!-- SIGNATURES -->
+      <div class="inv-sig-row">
+        <div class="inv-sig-block" style="text-align:left">
+          <div class="sig-line"></div>
+          <div class="sig-label" id="p-sig-label">For Company</div>
+          <div class="sig-sub">Authorised Signatory</div>
+        </div>
+        <div class="inv-sig-block receiver" style="text-align:right">
+          <div class="sig-line"></div>
+          <div class="sig-label">For Receiver</div>
+        </div>
+      </div>
+
+    </div><!-- /invoice -->
+  </main>
+</div>
+
+<div id="toast">Generating…</div>
+
+<script>
+/* ──────────────────────────────────────────────
+   WHITE-LABEL CONFIGURATION
+────────────────────────────────────────────── */
+const CONFIG = {
+  COMPANY_NAME: "Block Billing PWA",
+  THEME_COLOR: "#b5410a",
+  DEFAULT_WATERMARK: "BLOCK BILLING PWA"
+};
+
+/* ──────────────────────────────────────────────
+   DATA STATE
+────────────────────────────────────────────── */
+let gstModeOn = false;
+let transportModeOn = false;
+let interstateOn = false;
+
+let items = [{ 
+  grade: 'Class A', 
+  customGrade: '', 
+  size: '9"x4"x3"', 
+  desc: '', 
+  price: '', 
+  units: '1', 
+  hsn: '6815', 
+  gstRate: '0', 
+  cgstRate: '0', 
+  sgstRate: '0', 
+  igstRate: '0', 
+  gstAmount: '0.00', 
+  discountRate: '0', 
+  discountAmount: '0.00', 
+  notes: '' 
+}];
+
+/* ──────────────────────────────────────────────
+   INIT
+────────────────────────────────────────────── */
+(function init() {
+  document.getElementById('sidebar-app-title').textContent = CONFIG.COMPANY_NAME;
+  
+  const now = new Date();
+  document.getElementById('f-date').value = now.toISOString().slice(0,10);
+  document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+
+  bindEvents();
+  loadCurrentForm();
+  renderSidebarItems();
+  updatePreview();
+  setupAutoScaling();
+})();
+
+/* ──────────────────────────────────────────────
+   AUTO-SCALING & ZOOM
+────────────────────────────────────────────── */
+let currentZoom = 1;
+const INVOICE_WIDTH = 794;
+
+function setupAutoScaling() {
+  const previewArea = document.querySelector('.preview-area');
+  const resizeObserver = new ResizeObserver(() => {
+    applyScaling();
+  });
+  resizeObserver.observe(previewArea);
+  setTimeout(fitToWidth, 100);
+}
+
+function applyScaling() {
+  const previewArea = document.querySelector('.preview-area');
+  const invoice = document.getElementById('invoice');
+  const zoomVal = document.getElementById('zoom-val');
+  
+  const containerWidth = previewArea.clientWidth;
+  const paddingX = 40;
+  const availableWidth = containerWidth - paddingX;
+  
+  let finalScale = currentZoom;
+  if (availableWidth < INVOICE_WIDTH * currentZoom) {
+    finalScale = availableWidth / INVOICE_WIDTH;
+  }
+  
+  invoice.style.transform = `scale(${finalScale})`;
+  zoomVal.textContent = Math.round(finalScale * 100) + '%';
+  previewArea.style.minHeight = 'auto';
+}
+
+function zoomIn() {
+  currentZoom = Math.min(currentZoom + 0.1, 2);
+  applyScaling();
+}
+
+function zoomOut() {
+  currentZoom = Math.max(currentZoom - 0.1, 0.3);
+  applyScaling();
+}
+
+function fitToWidth() {
+  const previewArea = document.querySelector('.preview-area');
+  const containerWidth = previewArea.clientWidth;
+  const paddingX = 40;
+  currentZoom = (containerWidth - paddingX) / INVOICE_WIDTH;
+  if (currentZoom > 1) currentZoom = 1;
+  applyScaling();
+}
+
+function fitToPage() {
+  const previewArea = document.querySelector('.preview-area');
+  const invoice = document.getElementById('invoice');
+  const containerWidth = previewArea.clientWidth;
+  const containerHeight = previewArea.clientHeight;
+  const paddingX = 40;
+  const paddingY = 80;
+  
+  const scaleX = (containerWidth - paddingX) / INVOICE_WIDTH;
+  const scaleY = (containerHeight - paddingY) / invoice.offsetHeight;
+  
+  currentZoom = Math.min(scaleX, scaleY);
+  if (currentZoom > 1) currentZoom = 1;
+  applyScaling();
+}
+
+/* ──────────────────────────────────────────────
+   EVENT BINDINGS
+────────────────────────────────────────────── */
+function bindEvents() {
+  const inputIds = [
+    'f-inv-no', 'f-date', 'f-time', 'f-customer', 'f-inwords',
+    'f-seller-name', 'f-seller-addr1', 'f-seller-addr2', 'f-seller-addr3', 'f-seller-phone', 'f-seller-email', 'f-seller-gstin',
+    'f-cust-contact', 'f-cust-phone', 'f-buyer-gstin',
+    'f-trans-veh', 'f-trans-freight', 'f-trans-addr', 'f-trans-driver'
+  ];
+  
+  inputIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', (e) => {
+        if (id === 'f-customer' || id === 'f-inwords') {
+          const start = e.target.selectionStart;
+          e.target.value = toTitleCase(e.target.value);
+          e.target.setSelectionRange(start, start);
+        }
+        updatePreview();
+        saveCurrentForm();
+      });
+    }
+  });
+}
+
+function toTitleCase(str) {
+  return str.replace(/\b\w/g, char => char.toUpperCase());
+}
+
+/* ──────────────────────────────────────────────
+   TOGGLE ACTIONS
+────────────────────────────────────────────── */
+function onToggleGST(checked) {
+  gstModeOn = checked;
+  toggleGSTModeElements(checked);
+  updatePreview();
+  saveCurrentForm();
+}
+
+function toggleGSTModeElements(checked) {
+  document.getElementById('seller-gstin-container').style.display = checked ? 'block' : 'none';
+  document.getElementById('buyer-gstin-container').style.display = checked ? 'block' : 'none';
+  renderSidebarItems();
+}
+
+function onToggleTransport(checked) {
+  transportModeOn = checked;
+  toggleTransportModeElements(checked);
+  updatePreview();
+  saveCurrentForm();
+}
+
+function toggleTransportModeElements(checked) {
+  document.getElementById('transport-container').style.display = checked ? 'block' : 'none';
+}
+
+function onToggleWatermark(checked) {
+  document.getElementById('f-toggle-watermark').checked = checked;
+  document.getElementById('p-watermark').style.display = checked ? 'block' : 'none';
+  saveCurrentForm();
+}
+
+function onToggleInterstate(checked) {
+  interstateOn = checked;
+  renderSidebarItems();
+  updatePreview();
+  saveCurrentForm();
+}
+
+/* ──────────────────────────────────────────────
+   DATA PERSISTENCE & HISTORY
+────────────────────────────────────────────── */
+function saveCurrentForm() {
+  const formData = {
+    gstModeOn,
+    transportModeOn,
+    watermarkOn: document.getElementById('f-toggle-watermark').checked,
+    interstateOn,
+    
+    invNo: document.getElementById('f-inv-no').value,
+    date: document.getElementById('f-date').value,
+    time: document.getElementById('f-time').value,
+    
+    sellerName: document.getElementById('f-seller-name').value,
+    sellerAddr1: document.getElementById('f-seller-addr1').value,
+    sellerAddr2: document.getElementById('f-seller-addr2').value,
+    sellerAddr3: document.getElementById('f-seller-addr3').value,
+    sellerPhone: document.getElementById('f-seller-phone').value,
+    sellerEmail: document.getElementById('f-seller-email').value,
+    sellerGstin: document.getElementById('f-seller-gstin').value,
+    
+    customer: document.getElementById('f-customer').value,
+    custContact: document.getElementById('f-cust-contact').value,
+    custPhone: document.getElementById('f-cust-phone').value,
+    buyerGstin: document.getElementById('f-buyer-gstin').value,
+    
+    transVeh: document.getElementById('f-trans-veh').value,
+    transFreight: document.getElementById('f-trans-freight').value,
+    transAddr: document.getElementById('f-trans-addr').value,
+    transDriver: document.getElementById('f-trans-driver').value,
+    
+    inwords: document.getElementById('f-inwords').value,
+    items
+  };
+  localStorage.setItem('block_current_invoice', JSON.stringify(formData));
+}
+
+function loadCurrentForm() {
+  const saved = localStorage.getItem('block_current_invoice');
+  if (saved) {
+    const data = JSON.parse(saved);
+    
+    gstModeOn = data.gstModeOn || false;
+    transportModeOn = data.transportModeOn || false;
+    interstateOn = data.interstateOn || false;
+    
+    document.getElementById('f-toggle-gst').checked = gstModeOn;
+    document.getElementById('f-toggle-transport').checked = transportModeOn;
+    document.getElementById('f-toggle-watermark').checked = data.watermarkOn !== false;
+    document.getElementById('f-interstate').checked = interstateOn;
+    
+    toggleGSTModeElements(gstModeOn);
+    toggleTransportModeElements(transportModeOn);
+    onToggleWatermark(data.watermarkOn !== false);
+    
+    document.getElementById('f-inv-no').value = data.invNo || getNextInvoiceNumber();
+    
+    const now = new Date();
+    document.getElementById('f-date').value = data.date || now.toISOString().slice(0,10);
+    document.getElementById('f-time').value = data.time || now.toTimeString().slice(0,5);
+    
+    document.getElementById('f-seller-name').value = data.sellerName || CONFIG.COMPANY_NAME;
+    document.getElementById('f-seller-addr1').value = data.sellerAddr1 !== undefined ? data.sellerAddr1 : "Someshwar Sugar Factory road";
+    document.getElementById('f-seller-addr2').value = data.sellerAddr2 !== undefined ? data.sellerAddr2 : "Someshwarnagar";
+    document.getElementById('f-seller-addr3').value = data.sellerAddr3 !== undefined ? data.sellerAddr3 : "Tal: BARAMATI, Dist: PUNE";
+    document.getElementById('f-seller-phone').value = data.sellerPhone !== undefined ? data.sellerPhone : "8888503109 / 9765338027";
+    document.getElementById('f-seller-email').value = data.sellerEmail !== undefined ? data.sellerEmail : "ramarts1222@gmail.com";
+    document.getElementById('f-seller-gstin').value = data.sellerGstin || '';
+    
+    document.getElementById('f-customer').value = data.customer || '';
+    document.getElementById('f-cust-contact').value = data.custContact !== undefined ? data.custContact : "Mr.- Swapnil Gaikwad";
+    document.getElementById('f-cust-phone').value = data.custPhone !== undefined ? data.custPhone : "+91 8888503109";
+    document.getElementById('f-buyer-gstin').value = data.buyerGstin || '';
+    
+    document.getElementById('f-trans-veh').value = data.transVeh || '';
+    document.getElementById('f-trans-freight').value = data.transFreight || '';
+    document.getElementById('f-trans-addr').value = data.transAddr || '';
+    document.getElementById('f-trans-driver').value = data.transDriver || '';
+    
+    document.getElementById('f-inwords').value = data.inwords || '';
+    items = data.items || [{ grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }];
+  } else {
+    document.getElementById('f-inv-no').value = getNextInvoiceNumber();
+    resetToDefaults();
+  }
+}
+
+function resetToDefaults() {
+  document.getElementById('f-seller-name').value = CONFIG.COMPANY_NAME;
+  document.getElementById('f-seller-addr1').value = "Someshwar Sugar Factory road";
+  document.getElementById('f-seller-addr2').value = "Someshwarnagar";
+  document.getElementById('f-seller-addr3').value = "Tal: BARAMATI, Dist: PUNE";
+  document.getElementById('f-seller-phone').value = "8888503109 / 9765338027";
+  document.getElementById('f-seller-email').value = "ramarts1222@gmail.com";
+  document.getElementById('f-seller-gstin').value = "";
+  
+  document.getElementById('f-cust-contact').value = "Mr.- Swapnil Gaikwad";
+  document.getElementById('f-cust-phone').value = "+91 8888503109";
+  document.getElementById('f-buyer-gstin').value = "";
+  
+  document.getElementById('f-trans-veh').value = "";
+  document.getElementById('f-trans-freight').value = "";
+  document.getElementById('f-trans-addr').value = "";
+  document.getElementById('f-trans-driver').value = "";
+}
+
+function getNextInvoiceNumber() {
+  const history = JSON.parse(localStorage.getItem('block_history') || '[]');
+  if (history.length === 0) return 'BB-001';
+  
+  let maxNum = 0;
+  history.forEach(inv => {
+    const match = inv.invNo.match(/\d+/);
+    if (match) {
+      const num = parseInt(match[0]);
+      if (num > maxNum) maxNum = num;
+    }
+  });
+  
+  const nextNum = maxNum + 1;
+  return 'BB-' + nextNum.toString().padStart(3, '0');
+}
+
+function saveToHistory() {
+  const invNo = document.getElementById('f-inv-no').value || getNextInvoiceNumber();
+  const customer = document.getElementById('f-customer').value || 'No Customer';
+  
+  let itemsTotal = items.reduce((sum, item) => sum + calcAmount(item), 0);
+  let freight = parseFloat(document.getElementById('f-trans-freight').value) || 0;
+  let total = itemsTotal + (transportModeOn ? freight : 0);
+  
+  const invoice = {
+    id: Date.now(),
+    invNo,
+    customer,
+    date: document.getElementById('f-date').value,
+    time: document.getElementById('f-time').value,
+    inwords: document.getElementById('f-inwords').value,
+    
+    gstModeOn,
+    transportModeOn,
+    interstateOn,
+    watermarkOn: document.getElementById('f-toggle-watermark').checked,
+    
+    sellerName: document.getElementById('f-seller-name').value,
+    sellerAddr1: document.getElementById('f-seller-addr1').value,
+    sellerAddr2: document.getElementById('f-seller-addr2').value,
+    sellerAddr3: document.getElementById('f-seller-addr3').value,
+    sellerPhone: document.getElementById('f-seller-phone').value,
+    sellerEmail: document.getElementById('f-seller-email').value,
+    sellerGstin: document.getElementById('f-seller-gstin').value,
+    custContact: document.getElementById('f-cust-contact').value,
+    custPhone: document.getElementById('f-cust-phone').value,
+    buyerGstin: document.getElementById('f-buyer-gstin').value,
+    
+    transVeh: document.getElementById('f-trans-veh').value,
+    transFreight: document.getElementById('f-trans-freight').value,
+    transAddr: document.getElementById('f-trans-addr').value,
+    transDriver: document.getElementById('f-trans-driver').value,
+    
+    items: JSON.parse(JSON.stringify(items)),
+    total: total.toFixed(2)
+  };
+  
+  let history = JSON.parse(localStorage.getItem('block_history') || '[]');
+  
+  const existingIndex = history.findIndex(h => h.invNo === invNo);
+  if (existingIndex !== -1) {
+    if (confirm(`Invoice ${invNo} already exists in history. Update it?`)) {
+      history[existingIndex] = invoice;
+    } else {
+      return;
+    }
+  } else {
+    history.unshift(invoice);
+  }
+  
+  localStorage.setItem('block_history', JSON.stringify(history));
+  showToast('Invoice saved ✓');
+  renderHistory();
+  
+  if (confirm('Invoice saved. Start a new invoice?')) {
+    resetForm(true);
+  }
+}
+
+function toggleHistory() {
+  const drawer = document.getElementById('history-drawer');
+  const overlay = document.getElementById('overlay');
+  drawer.classList.toggle('open');
+  overlay.classList.toggle('show');
+  if (drawer.classList.contains('open')) renderHistory();
+}
+
+function renderHistory(searchTerm = '') {
+  const container = document.getElementById('history-list');
+  const history = JSON.parse(localStorage.getItem('block_history') || '[]');
+  container.innerHTML = '';
+  
+  const filtered = history.filter(inv => 
+    inv.invNo.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    inv.customer.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  if (filtered.length === 0) {
+    container.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">No invoices found</p>';
+    return;
+  }
+  
+  filtered.forEach(inv => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.onclick = () => loadInvoice(inv.id);
+    div.innerHTML = `
+      <div class="history-item-top">
+        <span>#${inv.invNo}</span>
+        <span>Rs. ${inv.total}</span>
+      </div>
+      <div class="history-item-mid">${inv.customer}</div>
+      <div class="history-item-bottom">
+        <span>${formatDate(inv.date)}</span>
+        <span>${inv.items.length} items</span>
+      </div>
+      <button class="btn-delete-history" onclick="deleteInvoice(event, ${inv.id})">×</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function loadInvoice(id) {
+  const history = JSON.parse(localStorage.getItem('block_history') || '[]');
+  const inv = history.find(i => i.id === id);
+  if (inv) {
+    document.getElementById('f-inv-no').value = inv.invNo;
+    document.getElementById('f-date').value = inv.date;
+    document.getElementById('f-time').value = inv.time;
+    document.getElementById('f-customer').value = inv.customer;
+    document.getElementById('f-inwords').value = inv.inwords || '';
+    
+    gstModeOn = inv.gstModeOn || false;
+    transportModeOn = inv.transportModeOn || false;
+    interstateOn = inv.interstateOn || false;
+    
+    document.getElementById('f-toggle-gst').checked = gstModeOn;
+    document.getElementById('f-toggle-transport').checked = transportModeOn;
+    document.getElementById('f-toggle-watermark').checked = inv.watermarkOn !== false;
+    document.getElementById('f-interstate').checked = interstateOn;
+    
+    toggleGSTModeElements(gstModeOn);
+    toggleTransportModeElements(transportModeOn);
+    onToggleWatermark(inv.watermarkOn !== false);
+    
+    document.getElementById('f-seller-name').value = inv.sellerName || CONFIG.COMPANY_NAME;
+    document.getElementById('f-seller-addr1').value = inv.sellerAddr1 || '';
+    document.getElementById('f-seller-addr2').value = inv.sellerAddr2 || '';
+    document.getElementById('f-seller-addr3').value = inv.sellerAddr3 || '';
+    document.getElementById('f-seller-phone').value = inv.sellerPhone || '';
+    document.getElementById('f-seller-email').value = inv.sellerEmail || '';
+    document.getElementById('f-seller-gstin').value = inv.sellerGstin || '';
+    
+    document.getElementById('f-cust-contact').value = inv.custContact || '';
+    document.getElementById('f-cust-phone').value = inv.custPhone || '';
+    document.getElementById('f-buyer-gstin').value = inv.buyerGstin || '';
+    
+    document.getElementById('f-trans-veh').value = inv.transVeh || '';
+    document.getElementById('f-trans-freight').value = inv.transFreight || '';
+    document.getElementById('f-trans-addr').value = inv.transAddr || '';
+    document.getElementById('f-trans-driver').value = inv.transDriver || '';
+    
+    items = inv.items;
+    renderSidebarItems();
+    updatePreview();
+    toggleHistory();
+    saveCurrentForm();
+    showToast('Invoice loaded ✓');
+  }
+}
+
+function deleteInvoice(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this invoice?')) return;
+  let history = JSON.parse(localStorage.getItem('block_history') || '[]');
+  history = history.filter(i => i.id !== id);
+  localStorage.setItem('block_history', JSON.stringify(history));
+  renderHistory();
+}
+
+function resetForm(internal = false) {
+  if (!internal && !confirm('Clear all fields?')) return;
+  document.getElementById('f-inv-no').value = getNextInvoiceNumber();
+  const now = new Date();
+  document.getElementById('f-date').value = now.toISOString().slice(0,10);
+  document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+  
+  gstModeOn = false;
+  transportModeOn = false;
+  interstateOn = false;
+  document.getElementById('f-toggle-gst').checked = false;
+  document.getElementById('f-toggle-transport').checked = false;
+  document.getElementById('f-toggle-watermark').checked = true;
+  document.getElementById('f-interstate').checked = false;
+  
+  toggleGSTModeElements(false);
+  toggleTransportModeElements(false);
+  onToggleWatermark(true);
+  
+  document.getElementById('f-customer').value = '';
+  document.getElementById('f-inwords').value = '';
+  
+  resetToDefaults();
+  
+  items = [{ grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }];
+  renderSidebarItems();
+  updatePreview();
+  saveCurrentForm();
+  if (!internal) showToast('Form reset ✓');
+}
+
+function searchHistory(val) {
+  renderHistory(val);
+}
+
+/* ──────────────────────────────────────────────
+   SIDEBAR ITEMS RENDERING
+────────────────────────────────────────────── */
+function renderSidebarItems() {
+  const c = document.getElementById('items-container');
+  c.innerHTML = '';
+  items.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    const amount = calcAmount(item);
+    row.innerHTML = `
+      <div class="item-row-header">
+        <span class="sno">#${i+1}</span>
+        <select onchange="updateItemGrade(${i}, this.value)" style="flex:1;">
+          <option value="Class A" ${item.grade === 'Class A' ? 'selected' : ''}>Class A</option>
+          <option value="Class B" ${item.grade === 'Class B' ? 'selected' : ''}>Class B</option>
+          <option value="Class C" ${item.grade === 'Class C' ? 'selected' : ''}>Class C</option>
+          <option value="Fly Ash Brick 9&quot;x4&quot;x3&quot;" ${item.grade === 'Fly Ash Brick 9"x4"x3"' ? 'selected' : ''}>Fly Ash Brick 9"x4"x3"</option>
+          <option value="Fly Ash Brick 9&quot;x4&quot;x4&quot;" ${item.grade === 'Fly Ash Brick 9"x4"x4"' ? 'selected' : ''}>Fly Ash Brick 9"x4"x4"</option>
+          <option value="Other" ${item.grade === 'Other' ? 'selected' : ''}>Other...</option>
+        </select>
+        ${item.grade === 'Other' ? `<input type="text" placeholder="Grade Name" value="${item.customGrade}" oninput="updateItem(${i}, 'customGrade', this.value, this)" style="flex:1; margin-left: 8px;"/>` : ''}
+        <button class="btn-remove" onclick="removeItem(${i})" title="Remove">×</button>
+      </div>
+      
+      <div class="item-row-inputs">
+        <div class="item-field-group">
+          <label>Size</label>
+          <input type="text" placeholder="e.g. 230x110x75" value="${item.size}" oninput="updateItem(${i}, 'size', this.value, this)"/>
+        </div>
+        <div class="item-field-group">
+          <label>Price (₹)</label>
+          <input type="number" placeholder="0.00" value="${item.price}" min="0" step="0.01" oninput="updateItem(${i}, 'price', this.value, this)"/>
+        </div>
+        <div class="item-field-group">
+          <label>Qty (pcs)</label>
+          <input type="number" placeholder="1" value="${item.units}" min="1" step="1" oninput="updateItem(${i}, 'units', this.value, this)"/>
+        </div>
+        <div class="item-field-group">
+          <label>Disc (%)</label>
+          <input type="number" placeholder="0" value="${item.discountRate}" min="0" step="0.01" oninput="updateItem(${i}, 'discountRate', this.value, this)"/>
+        </div>
+      </div>
+
+      <div class="item-row-inputs" style="margin-top: 8px;">
+        ${!gstModeOn ? `
+          <div class="item-field-group" style="grid-column: span 3;">
+            <label>GST (%)</label>
+            <input type="number" placeholder="0" value="${item.gstRate}" min="0" step="0.01" oninput="updateItem(${i}, 'gstRate', this.value, this)"/>
+          </div>
+        ` : `
+          <div class="item-field-group">
+            <label>HSN</label>
+            <input type="text" placeholder="6815" value="${item.hsn}" oninput="updateItem(${i}, 'hsn', this.value, this)"/>
+          </div>
+          ${!interstateOn ? `
+            <div class="item-field-group">
+              <label>CGST (%)</label>
+              <input type="number" placeholder="0" value="${item.cgstRate}" min="0" step="0.01" oninput="updateItemCGST(${i}, this.value, this)"/>
+            </div>
+            <div class="item-field-group">
+              <label>SGST (%)</label>
+              <input type="number" placeholder="0" value="${item.sgstRate}" min="0" step="0.01" oninput="updateItemSGST(${i}, this.value, this)"/>
+            </div>
+          ` : `
+            <div class="item-field-group" style="grid-column: span 2;">
+              <label>IGST (%)</label>
+              <input type="number" placeholder="0" value="${item.igstRate}" min="0" step="0.01" oninput="updateItem(${i}, 'igstRate', this.value, this)"/>
+            </div>
+          `}
+        `}
+        <div class="item-field-group">
+          <label>Amount</label>
+          <div class="amt-cell">${amount > 0 ? '₹' + amount.toFixed(2) : '—'}</div>
+        </div>
+      </div>
+
+      <div class="item-row-notes">
+        <input type="text" placeholder="Description/Optional specs..." value="${item.desc}" oninput="updateItem(${i}, 'desc', this.value, this)"/>
+      </div>
+    `;
+    c.appendChild(row);
+  });
+}
+
+function updateItemGrade(i, val) {
+  items[i].grade = val;
+  if (val !== 'Other') {
+    items[i].customGrade = '';
+  }
+  renderSidebarItems();
+  updatePreview();
+  saveCurrentForm();
+}
+
+function updateItemCGST(i, val, el) {
+  items[i].cgstRate = val;
+  items[i].sgstRate = val;
+  renderSidebarItems();
+  updatePreview();
+  saveCurrentForm();
+}
+
+function updateItemSGST(i, val, el) {
+  items[i].sgstRate = val;
+  items[i].cgstRate = val;
+  renderSidebarItems();
+  updatePreview();
+  saveCurrentForm();
+}
+
+function updateItem(i, field, val, el) {
+  items[i][field] = val;
+  updatePreview();
+  
+  const row = el.closest('.item-row');
+  const amtCell = row.querySelector('.amt-cell');
+  const amount = calcAmount(items[i]);
+  amtCell.textContent = amount > 0 ? '₹' + amount.toFixed(2) : '—';
+  
+  saveCurrentForm();
+}
+
+function addItem() {
+  items.push({ grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' });
+  renderSidebarItems();
+  updatePreview();
+}
+
+function removeItem(i) {
+  if (items.length === 1) { 
+    items[0] = { grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }; 
+  } else {
+    items.splice(i, 1);
+  }
+  renderSidebarItems();
+  updatePreview();
+}
+
+function calcAmount(item) {
+  const p = parseFloat(item.price);
+  const u = parseFloat(item.units);
+  const discountR = parseFloat(item.discountRate);
+
+  if (isNaN(p) || isNaN(u)) return 0;
+
+  let baseAmount = p * u;
+
+  let discountAmount = 0;
+  if (!isNaN(discountR) && discountR > 0) {
+    discountAmount = baseAmount * (discountR / 100);
+    baseAmount -= discountAmount;
+  }
+  item.discountAmount = discountAmount.toFixed(2);
+
+  let gstR = 0;
+  if (gstModeOn) {
+    if (interstateOn) {
+      gstR = parseFloat(item.igstRate) || 0;
+    } else {
+      gstR = (parseFloat(item.cgstRate) || 0) + (parseFloat(item.sgstRate) || 0);
+    }
+  } else {
+    gstR = parseFloat(item.gstRate) || 0;
+  }
+
+  let gstAmount = 0;
+  if (gstR > 0) {
+    gstAmount = baseAmount * (gstR / 100);
+    baseAmount += gstAmount;
+  }
+  item.gstAmount = gstAmount.toFixed(2);
+
+  return baseAmount;
+}
+
+/* ──────────────────────────────────────────────
+   PREVIEW UPDATE
+────────────────────────────────────────────── */
+function updatePreview() {
+  document.getElementById('p-inv-no').textContent = document.getElementById('f-inv-no').value || '—';
+
+  const dateVal = document.getElementById('f-date').value;
+  document.getElementById('p-date').textContent = dateVal ? formatDate(dateVal) : '';
+
+  const timeVal = document.getElementById('f-time').value;
+  document.getElementById('p-time').textContent = timeVal ? formatTime(timeVal) : '';
+
+  const sName = document.getElementById('f-seller-name').value || CONFIG.COMPANY_NAME;
+  const sAddr1 = document.getElementById('f-seller-addr1').value || '';
+  const sAddr2 = document.getElementById('f-seller-addr2').value || '';
+  const sAddr3 = document.getElementById('f-seller-addr3').value || '';
+  const sPhone = document.getElementById('f-seller-phone').value || '';
+  const sEmail = document.getElementById('f-seller-email').value || '';
+  
+  document.getElementById('p-logo-subtext').textContent = sAddr2 || sAddr1 || '';
+  document.getElementById('p-watermark').textContent = sName.toUpperCase();
+  
+  let addrHtml = `<strong>${escHtml(sName)}</strong><br>`;
+  if (sAddr1) addrHtml += `${escHtml(sAddr1)}<br>`;
+  if (sAddr2) addrHtml += `${escHtml(sAddr2)}<br>`;
+  if (sAddr3) addrHtml += `${escHtml(sAddr3)}<br>`;
+  if (sEmail) addrHtml += `E-mail : <a href="mailto:${sEmail}">${escHtml(sEmail)}</a><br>`;
+  if (sPhone) addrHtml += `Mo : ${escHtml(sPhone)}`;
+  if (gstModeOn) {
+    const sGstin = document.getElementById('f-seller-gstin').value || '';
+    if (sGstin) addrHtml += `<br><strong>GSTIN: ${escHtml(sGstin)}</strong>`;
+  }
+  document.getElementById('p-seller-addr-block').innerHTML = addrHtml;
+
+  const custName = document.getElementById('f-customer').value || '';
+  const custContact = document.getElementById('f-cust-contact').value || '';
+  const custPhone = document.getElementById('f-cust-phone').value || '';
+  
+  document.querySelector('.inv-customer .mr span').textContent = custName;
+  
+  let contactHtml = '';
+  if (custContact) contactHtml += `Contact Person: ${escHtml(custContact)}<br>`;
+  if (custPhone) contactHtml += `Cell: ${escHtml(custPhone)}<br>`;
+  if (gstModeOn) {
+    const bGstin = document.getElementById('f-buyer-gstin').value || '';
+    if (bGstin) contactHtml += `GSTIN: ${escHtml(bGstin)}<br>`;
+  }
+  document.querySelector('.inv-customer .contact').innerHTML = contactHtml;
+
+  const transFreight = parseFloat(document.getElementById('f-trans-freight').value) || 0;
+  if (transportModeOn) {
+    document.getElementById('p-transport-block').style.display = 'block';
+    document.getElementById('p-trans-addr').textContent = document.getElementById('f-trans-addr').value || 'Same as billing';
+    document.getElementById('p-trans-veh').textContent = document.getElementById('f-trans-veh').value || '—';
+    document.getElementById('p-trans-driver').textContent = document.getElementById('f-trans-driver').value || '—';
+  } else {
+    document.getElementById('p-transport-block').style.display = 'none';
+  }
+
+  // Items table configuration
+  const thead = document.querySelector('.inv-table thead');
+  if (!gstModeOn) {
+    thead.innerHTML = `
+      <tr>
+        <th style="width:52px">S.No.</th>
+        <th>Description</th>
+        <th style="width:130px; text-align:right">Unit Price (Rs)</th>
+        <th style="width:80px; text-align:right">Units</th>
+        <th style="width:80px; text-align:right">Disc. (%)</th>
+        <th style="width:80px; text-align:right">GST (%)</th>
+        <th style="width:130px; text-align:right">Amount (Rs)</th>
+      </tr>
+    `;
+  } else {
+    if (interstateOn) {
+      thead.innerHTML = `
+        <tr>
+          <th style="width:40px">S.No.</th>
+          <th>Description</th>
+          <th style="width:70px">HSN</th>
+          <th style="width:90px; text-align:right">Price (Rs)</th>
+          <th style="width:55px; text-align:right">Qty</th>
+          <th style="width:55px; text-align:right">Disc%</th>
+          <th style="width:90px; text-align:right">Taxable</th>
+          <th style="width:55px; text-align:right">IGST%</th>
+          <th style="width:80px; text-align:right">IGST Amt</th>
+          <th style="width:90px; text-align:right">Total</th>
+        </tr>
+      `;
+    } else {
+      thead.innerHTML = `
+        <tr>
+          <th style="width:40px">S.No.</th>
+          <th>Description</th>
+          <th style="width:65px">HSN</th>
+          <th style="width:85px; text-align:right">Price (Rs)</th>
+          <th style="width:50px; text-align:right">Qty</th>
+          <th style="width:50px; text-align:right">Disc%</th>
+          <th style="width:85px; text-align:right">Taxable</th>
+          <th style="width:45px; text-align:right">CGST%</th>
+          <th style="width:70px; text-align:right">CGST</th>
+          <th style="width:45px; text-align:right">SGST%</th>
+          <th style="width:70px; text-align:right">SGST</th>
+          <th style="width:85px; text-align:right">Total</th>
+        </tr>
+      `;
+    }
+  }
+
+  const tbody = document.getElementById('p-items');
+  tbody.innerHTML = '';
+  let itemsSubtotal = 0;
+  let totalTaxableValue = 0;
+  let totalCgstAmt = 0;
+  let totalSgstAmt = 0;
+  let totalIgstAmt = 0;
+  
+  items.forEach((item, i) => {
+    const p = parseFloat(item.price) || 0;
+    const u = parseFloat(item.units) || 0;
+    const discountR = parseFloat(item.discountRate) || 0;
+    
+    let baseAmount = p * u;
+    let discAmt = baseAmount * (discountR / 100);
+    let taxable = baseAmount - discAmt;
+    
+    let lineTotal = calcAmount(item);
+    itemsSubtotal += lineTotal;
+    
+    const itemGrade = item.grade === 'Other' ? item.customGrade : item.grade;
+    const itemSize = item.size;
+    let displayDesc = '';
+    if (itemGrade || itemSize) {
+      displayDesc = `<strong>${escHtml(itemGrade || '')} ${itemSize ? `(${escHtml(itemSize)})` : ''}</strong>`;
+      if (item.desc) displayDesc += `<br>${escHtml(item.desc)}`;
+    } else {
+      displayDesc = escHtml(item.desc || '—');
+    }
+    
+    const tr = document.createElement('tr');
+    if (!gstModeOn) {
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${displayDesc}</td>
+        <td style="text-align:right">${item.price !== '' ? 'Rs. ' + p.toFixed(2) : ''}</td>
+        <td style="text-align:right">${item.units || ''}</td>
+        <td style="text-align:right">${discountR.toFixed(2)}</td>
+        <td style="text-align:right">${(parseFloat(item.gstRate) || 0).toFixed(2)}</td>
+        <td style="text-align:right">${lineTotal > 0 ? 'Rs. ' + lineTotal.toFixed(2) : ''}</td>
+      `;
+    } else {
+      totalTaxableValue += taxable;
+      if (interstateOn) {
+        const igstR = parseFloat(item.igstRate) || 0;
+        const igstAmt = taxable * (igstR / 100);
+        totalIgstAmt += igstAmt;
+        tr.innerHTML = `
+          <td>${i+1}</td>
+          <td>${displayDesc}</td>
+          <td>${escHtml(item.hsn || '6815')}</td>
+          <td style="text-align:right">${p > 0 ? p.toFixed(2) : ''}</td>
+          <td style="text-align:right">${u || ''}</td>
+          <td style="text-align:right">${discountR.toFixed(2)}</td>
+          <td style="text-align:right">${taxable > 0 ? taxable.toFixed(2) : ''}</td>
+          <td style="text-align:right">${igstR.toFixed(2)}</td>
+          <td style="text-align:right">${igstAmt > 0 ? igstAmt.toFixed(2) : ''}</td>
+          <td style="text-align:right">${lineTotal > 0 ? lineTotal.toFixed(2) : ''}</td>
+        `;
+      } else {
+        const cgstR = parseFloat(item.cgstRate) || 0;
+        const sgstR = parseFloat(item.sgstRate) || 0;
+        const cgstAmt = taxable * (cgstR / 100);
+        const sgstAmt = taxable * (sgstR / 100);
+        totalCgstAmt += cgstAmt;
+        totalSgstAmt += sgstAmt;
+        tr.innerHTML = `
+          <td>${i+1}</td>
+          <td>${displayDesc}</td>
+          <td>${escHtml(item.hsn || '6815')}</td>
+          <td style="text-align:right">${p > 0 ? p.toFixed(2) : ''}</td>
+          <td style="text-align:right">${u || ''}</td>
+          <td style="text-align:right">${discountR.toFixed(2)}</td>
+          <td style="text-align:right">${taxable > 0 ? taxable.toFixed(2) : ''}</td>
+          <td style="text-align:right">${cgstR.toFixed(2)}</td>
+          <td style="text-align:right">${cgstAmt > 0 ? cgstAmt.toFixed(2) : ''}</td>
+          <td style="text-align:right">${sgstR.toFixed(2)}</td>
+          <td style="text-align:right">${sgstAmt > 0 ? sgstAmt.toFixed(2) : ''}</td>
+          <td style="text-align:right">${lineTotal > 0 ? lineTotal.toFixed(2) : ''}</td>
+        `;
+      }
+    }
+    tbody.appendChild(tr);
+  });
+
+  // Empty filler rows
+  const MIN_ROWS = 7;
+  const fillerCount = Math.max(0, MIN_ROWS - items.length);
+  const totalCols = !gstModeOn ? 7 : (interstateOn ? 10 : 12);
+  for (let i = 0; i < fillerCount; i++) {
+    const tr = document.createElement('tr');
+    tr.className = 'empty-row';
+    tr.innerHTML = '<td></td>'.repeat(totalCols);
+    tbody.appendChild(tr);
+  }
+
+  // Tax summary block
+  if (gstModeOn) {
+    document.getElementById('p-gst-summary-wrapper').style.display = 'block';
+    document.getElementById('p-gst-summary-taxable').textContent = 'Rs. ' + totalTaxableValue.toFixed(2);
+    if (interstateOn) {
+      document.getElementById('p-gst-summary-hdr-cgst').style.display = 'none';
+      document.getElementById('p-gst-summary-cgst').style.display = 'none';
+      document.getElementById('p-gst-summary-hdr-sgst').style.display = 'none';
+      document.getElementById('p-gst-summary-sgst').style.display = 'none';
+      
+      document.getElementById('p-gst-summary-hdr-igst').style.display = 'table-cell';
+      document.getElementById('p-gst-summary-igst').style.display = 'table-cell';
+      document.getElementById('p-gst-summary-igst').textContent = 'Rs. ' + totalIgstAmt.toFixed(2);
+      document.getElementById('p-gst-summary-total-tax').textContent = 'Rs. ' + totalIgstAmt.toFixed(2);
+    } else {
+      document.getElementById('p-gst-summary-hdr-cgst').style.display = 'table-cell';
+      document.getElementById('p-gst-summary-cgst').style.display = 'table-cell';
+      document.getElementById('p-gst-summary-hdr-sgst').style.display = 'table-cell';
+      document.getElementById('p-gst-summary-sgst').style.display = 'table-cell';
+      
+      document.getElementById('p-gst-summary-hdr-igst').style.display = 'none';
+      document.getElementById('p-gst-summary-igst').style.display = 'none';
+      
+      document.getElementById('p-gst-summary-cgst').textContent = 'Rs. ' + totalCgstAmt.toFixed(2);
+      document.getElementById('p-gst-summary-sgst').textContent = 'Rs. ' + totalSgstAmt.toFixed(2);
+      document.getElementById('p-gst-summary-total-tax').textContent = 'Rs. ' + (totalCgstAmt + totalSgstAmt).toFixed(2);
+    }
+  } else {
+    document.getElementById('p-gst-summary-wrapper').style.display = 'none';
+  }
+
+  let grandTotal = itemsSubtotal;
+  if (transportModeOn) {
+    grandTotal += transFreight;
+    document.getElementById('p-freight-row').style.display = 'flex';
+    document.getElementById('p-freight-value').textContent = 'Rs. ' + transFreight.toFixed(2);
+  } else {
+    document.getElementById('p-freight-row').style.display = 'none';
+  }
+  document.getElementById('p-total').textContent = 'Rs. ' + grandTotal.toFixed(2);
+
+  const manualWords = document.getElementById('f-inwords').value.trim();
+  const autoWords = numberToWords(grandTotal);
+  document.getElementById('p-inwords').textContent = manualWords || autoWords;
+  document.getElementById('f-inwords').placeholder = autoWords;
+  
+  document.getElementById('p-sig-label').textContent = 'For ' + sName;
+}
+
+/* ──────────────────────────────────────────────
+   HELPERS
+────────────────────────────────────────────── */
+function formatDate(str) {
+  if (!str) return '';
+  const [y,m,d] = str.split('-');
+  return `${d}/${m}/${y}`;
+}
+function formatTime(str) {
+  if (!str) return '';
+  const [h,min] = str.split(':');
+  const hh = parseInt(h);
+  const ampm = hh >= 12 ? 'PM' : 'AM';
+  const hr = hh % 12 || 12;
+  return `${hr}:${min} ${ampm}`;
+}
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function numberToWords(num) {
+  if (num === 0) return 'Zero';
+  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
+    'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen',
+    'Eighteen','Nineteen'];
+  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+  function words(n) {
+    if (n === 0) return '';
+    if (n < 20) return ones[n] + ' ';
+    if (n < 100) return tens[Math.floor(n/10)] + ' ' + ones[n%10] + ' ';
+    if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred ' + words(n%100);
+    if (n < 100000) return words(Math.floor(n/1000)) + 'Thousand ' + words(n%1000);
+    if (n < 10000000) return words(Math.floor(n/100000)) + 'Lakh ' + words(n%100000);
+    return words(Math.floor(n/10000000)) + 'Crore ' + words(n%10000000);
+  }
+
+  const intPart = Math.floor(num);
+  const decPart = Math.round((num - intPart) * 100);
+  let result = words(intPart).trim();
+  if (decPart > 0) result += ' and ' + words(decPart).trim() + ' Paise';
+  return result;
+}
+
+/* ──────────────────────────────────────────────
+   EXPORT — PDF
+────────────────────────────────────────────── */
+async function downloadPDF() {
+  showToast('Generating PDF…');
+  const el = document.getElementById('invoice');
+  const previewArea = document.querySelector('.preview-area');
+  
+  const originalTransform = el.style.transform;
+  const originalTransformOrigin = el.style.transformOrigin;
+  const originalMinHeight = previewArea.style.minHeight;
+
+  try {
+    el.style.transform = 'none';
+    el.style.transformOrigin = 'top left';
+    previewArea.style.minHeight = 'auto';
+
+    const canvas = await html2canvas(el, { 
+      scale: 3, 
+      useCORS: true, 
+      backgroundColor: '#fff',
+      logging: false,
+      width: 794,
+      height: el.scrollHeight,
+      windowHeight: el.scrollHeight,
+      y: 0,
+      scrollX: 0,
+      scrollY: 0
+    });
+
+    el.style.transform = originalTransform;
+    el.style.transformOrigin = originalTransformOrigin;
+    previewArea.style.minHeight = originalMinHeight;
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    
+    const imgWidth = 210;
+    const pageHeight = 297;
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    
+    const pxPageHeight = Math.floor((canvasWidth / imgWidth) * pageHeight);
+    
+    let leftHeight = canvasHeight;
+    let position = 0;
+    let pageCount = 0;
+
+    while (leftHeight > 0) {
+      if (pageCount > 0) pdf.addPage();
+      
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvasWidth;
+      pageCanvas.height = Math.min(pxPageHeight, leftHeight);
+      
+      const ctx = pageCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, position, canvasWidth, pageCanvas.height, 0, 0, canvasWidth, pageCanvas.height);
+      
+      const imgData = pageCanvas.toDataURL('image/jpeg', 1.0);
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, (pageCanvas.height * imgWidth) / canvasWidth);
+      
+      leftHeight -= pxPageHeight;
+      position += pxPageHeight;
+      pageCount++;
+    }
+
+    const sName = document.getElementById('f-seller-name').value || 'Block';
+    const filename = sName.replace(/[^a-z0-9]/gi, '_') + '_Invoice_' + (document.getElementById('f-inv-no').value || 'no') + '.pdf';
+    pdf.save(filename);
+    showToast(`PDF saved (${pageCount} page${pageCount > 1 ? 's' : ''}) ✓`);
+  } catch(e) {
+    el.style.transform = originalTransform;
+    el.style.transformOrigin = originalTransformOrigin;
+    previewArea.style.minHeight = originalMinHeight;
+    showToast('Error generating PDF');
+    console.error(e);
+  }
+}
+
+/* ──────────────────────────────────────────────
+   EXPORT — JPG
+────────────────────────────────────────────── */
+async function downloadJPG() {
+  showToast('Generating JPG…');
+  const el = document.getElementById('invoice');
+  const previewArea = document.querySelector('.preview-area');
+  
+  const originalTransform = el.style.transform;
+  const originalTransformOrigin = el.style.transformOrigin;
+  const originalMinHeight = previewArea.style.minHeight;
+
+  try {
+    el.style.transform = 'none';
+    el.style.transformOrigin = 'top left';
+    previewArea.style.minHeight = 'auto';
+
+    const canvas = await html2canvas(el, { 
+      scale: 3, 
+      useCORS: true, 
+      backgroundColor: '#fff',
+      logging: false,
+      width: 794,
+      height: el.scrollHeight,
+      windowHeight: el.scrollHeight,
+      y: 0,
+      scrollX: 0,
+      scrollY: 0
+    });
+
+    el.style.transform = originalTransform;
+    el.style.transformOrigin = originalTransformOrigin;
+    previewArea.style.minHeight = originalMinHeight;
+
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const pxPageHeight = Math.floor((canvasWidth / 210) * 297);
+    
+    let leftHeight = canvasHeight;
+    let position = 0;
+    let pageNum = 1;
+
+    const sName = document.getElementById('f-seller-name').value || 'Block';
+    const safeName = sName.replace(/[^a-z0-9]/gi, '_');
+
+    while (leftHeight > 0) {
+      const sliceHeight = Math.min(pxPageHeight, leftHeight);
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvasWidth;
+      pageCanvas.height = sliceHeight;
+      
+      const ctx = pageCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, position, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
+      
+      const link = document.createElement('a');
+      link.download = `${safeName}_Invoice_Page_${pageNum}.jpg`;
+      link.href = pageCanvas.toDataURL('image/jpeg', 0.95);
+      link.click();
+      
+      leftHeight -= pxPageHeight;
+      position += pxPageHeight;
+      pageNum++;
+      
+      if (leftHeight > 0) await new Promise(r => setTimeout(r, 500));
+    }
+
+    showToast(`JPG saved (${pageNum-1} image${pageNum-1 > 1 ? 's' : ''}) ✓`);
+  } catch(e) {
+    el.style.transform = originalTransform;
+    el.style.transformOrigin = originalTransformOrigin;
+    previewArea.style.minHeight = originalMinHeight;
+    showToast('Error generating JPG');
+    console.error(e);
+  }
+}
+
+/* ──────────────────────────────────────────────
+   PRINT
+────────────────────────────────────────────── */
+function printInvoice() {
+  window.print();
+}
+
+/* ──────────────────────────────────────────────
+   TOAST
+────────────────────────────────────────────── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js');
+    });
+  }
+</script>
+</body>
+</html>

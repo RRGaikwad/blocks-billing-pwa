@@ -1,0 +1,25 @@
+{
+  "name": "Block Billing PWA",
+  "short_name": "BlockBilling",
+  "description": "Invoice generator and billing app for Block Billing PWA.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f5f0eb",
+  "theme_color": "#b5410a",
+  "orientation": "any",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "Block%20Billing%20PWA%20Icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "Block%20Billing%20PWA%20Icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
