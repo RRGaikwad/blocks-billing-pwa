@@ -529,40 +529,6 @@
       page-break-inside: avoid;
     }
   }
-
-  .settings-drawer, .inventory-drawer {
-    position: fixed; top: 0; left: -100%;
-    width: 380px; height: 100vh;
-    background: #fff; z-index: 100;
-    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 4px 0 15px rgba(0,0,0,0.1);
-    display: flex; flex-direction: column;
-  }
-  .settings-drawer.open, .inventory-drawer.open { left: 0; }
-  .settings-header, .inventory-header {
-    background: var(--ink); color: #fff;
-    padding: 22px 24px; display: flex; justify-content: space-between; align-items: center;
-  }
-  .settings-header h2, .inventory-header h2 { font-family: var(--ff-head); font-size: 1.2rem; }
-  .settings-body, .inventory-body { padding: 20px; flex: 1; overflow-y: auto; }
-  .settings-btn { 
-    display: block; width: 100%; padding: 12px; margin-bottom: 12px;
-    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
-    text-align: left; font-weight: 600; cursor: pointer; transition: all 0.2s; color: var(--ink);
-  }
-  .settings-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .inventory-item-row {
-    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
-    padding: 12px; margin-bottom: 12px; position: relative;
-  }
-  .inventory-item-row input { margin-bottom: 8px; }
-  @media (max-width: 480px) {
-    .settings-drawer, .inventory-drawer { width: 100%; }
-  }
-  @media print {
-    .settings-drawer, .inventory-drawer { display: none !important; }
-  }
-
 </style>
 </head>
 <body>
@@ -570,7 +536,7 @@
 <div class="app">
 
   <!-- ══ HISTORY DRAWER ══ -->
-  <div class="overlay" id="overlay"></div>
+  <div class="overlay" id="overlay" onclick="toggleHistory()"></div>
   <div class="history-drawer" id="history-drawer">
     <div class="history-header">
       <h2>Invoice History</h2>
@@ -581,30 +547,6 @@
         <input type="text" placeholder="Search by number or customer..." oninput="searchHistory(this.value)"/>
       </div>
       <div id="history-list"></div>
-    </div>
-  </div>
-
-  <div class="settings-drawer" id="settings-drawer">
-    <div class="settings-header">
-      <h2>Settings</h2>
-      <button class="btn-close-history" onclick="toggleSettings()">×</button>
-    </div>
-    <div class="settings-body">
-      <button class="settings-btn" onclick="toggleSettings(); toggleHistory();">🕘 Invoice History</button>
-      <button class="settings-btn" onclick="toggleSettings(); toggleInventory();">📦 Manage Items Info</button>
-      <button class="settings-btn" onclick="toggleSettings(); resetForm();" style="color:#ef4444;">🗑 Clear All Data</button>
-    </div>
-  </div>
-
-  <div class="inventory-drawer" id="inventory-drawer">
-    <div class="inventory-header">
-      <h2>Manage Items</h2>
-      <button class="btn-close-history" onclick="toggleInventory()">×</button>
-    </div>
-    <div class="inventory-body">
-      <p style="font-size:0.8rem; color:#666; margin-bottom:15px;">Add products here to auto-fill Size &amp; Price when selected on an invoice.</p>
-      <div id="inventory-list"></div>
-      <button class="btn-action" style="width:100%; justify-content:center; background:var(--accent); margin-top:10px;" onclick="addInventoryItem()">+ Add New Item</button>
     </div>
   </div>
 
@@ -623,9 +565,13 @@
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Save
         </button>
-        <button class="btn-action" onclick="toggleSettings()">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          Settings
+        <button class="btn-action" onclick="toggleHistory()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          History
+        </button>
+        <button class="btn-action" onclick="resetForm()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Clear All
         </button>
       </div>
     </div>
@@ -1424,7 +1370,7 @@ function newInvoice(force = false) {
   
   document.getElementById('f-inwords').value = '';
   
-  items = [getDefaultItem()];
+  items = [{ grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }];
   
   renderSidebarItems();
   updatePreview();
@@ -1459,7 +1405,7 @@ function resetForm(internal = false) {
   
   resetToDefaults();
   
-  items = [getDefaultItem()];
+  items = [{ grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }];
   renderSidebarItems();
   updatePreview();
   saveCurrentForm();
@@ -1484,7 +1430,12 @@ function renderSidebarItems() {
       <div class="item-row-header">
         <span class="sno">#${i+1}</span>
         <select onchange="updateItemGrade(${i}, this.value)" style="flex:1;">
-          ${getInventoryOptions(item.grade)}
+          <option value="Class A" ${item.grade === 'Class A' ? 'selected' : ''}>Class A</option>
+          <option value="Class B" ${item.grade === 'Class B' ? 'selected' : ''}>Class B</option>
+          <option value="Class C" ${item.grade === 'Class C' ? 'selected' : ''}>Class C</option>
+          <option value="Fly Ash Brick 9&quot;x4&quot;x3&quot;" ${item.grade === 'Fly Ash Brick 9"x4"x3"' ? 'selected' : ''}>Fly Ash Brick 9"x4"x3"</option>
+          <option value="Fly Ash Brick 9&quot;x4&quot;x4&quot;" ${item.grade === 'Fly Ash Brick 9"x4"x4"' ? 'selected' : ''}>Fly Ash Brick 9"x4"x4"</option>
+          <option value="Other" ${item.grade === 'Other' ? 'selected' : ''}>Other...</option>
         </select>
         ${item.grade === 'Other' ? `<input type="text" placeholder="Grade Name" value="${item.customGrade}" oninput="updateItem(${i}, 'customGrade', this.value, this)" style="flex:1; margin-left: 8px;"/>` : ''}
         <button class="btn-remove" onclick="removeItem(${i})" title="Remove">×</button>
@@ -1554,12 +1505,6 @@ function updateItemGrade(i, val) {
   items[i].grade = val;
   if (val !== 'Other') {
     items[i].customGrade = '';
-    const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-    const match = inv.find(m => m.name === val);
-    if (match) {
-      items[i].size = match.size || items[i].size;
-      items[i].price = match.price || items[i].price;
-    }
   }
   renderSidebarItems();
   updatePreview();
@@ -1595,14 +1540,14 @@ function updateItem(i, field, val, el) {
 }
 
 function addItem() {
-  items.push(getDefaultItem());
+  items.push({ grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' });
   renderSidebarItems();
   updatePreview();
 }
 
 function removeItem(i) {
   if (items.length === 1) { 
-    items[0] = getDefaultItem();
+    items[0] = { grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }; 
   } else {
     items.splice(i, 1);
   }
@@ -2126,113 +2071,6 @@ function showToast(msg) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2400);
 }
-
-/* ──────────────────────────────────────────────
-   SETTINGS & INVENTORY
-────────────────────────────────────────────── */
-function toggleSettings() {
-  const drawer = document.getElementById('settings-drawer');
-  const overlay = document.getElementById('overlay');
-  drawer.classList.toggle('open');
-  if (!document.getElementById('inventory-drawer').classList.contains('open') &&
-      !document.getElementById('history-drawer').classList.contains('open')) {
-    if (drawer.classList.contains('open')) {
-      overlay.classList.add('show');
-    } else {
-      overlay.classList.remove('show');
-    }
-  }
-}
-
-function toggleInventory() {
-  const drawer = document.getElementById('inventory-drawer');
-  const overlay = document.getElementById('overlay');
-  drawer.classList.toggle('open');
-  if (drawer.classList.contains('open')) {
-    overlay.classList.add('show');
-    renderInventory();
-  } else {
-    if (!document.getElementById('settings-drawer').classList.contains('open') &&
-        !document.getElementById('history-drawer').classList.contains('open')) {
-      overlay.classList.remove('show');
-    }
-  }
-}
-
-function getInventoryOptions(selectedGrade) {
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  if (inv.length === 0) {
-    inv.push({ name: 'Class A', size: '9"x4"x3"', price: '' });
-    inv.push({ name: 'Class B', size: '9"x4"x3"', price: '' });
-    localStorage.setItem('block_inventory', JSON.stringify(inv));
-  }
-  let html = '';
-  let found = false;
-  inv.forEach(item => {
-    if (item.name === selectedGrade) found = true;
-    html += `<option value="${escHtml(item.name)}" ${item.name === selectedGrade ? 'selected' : ''}>${escHtml(item.name)}</option>`;
-  });
-  html += `<option value="Other" ${selectedGrade === 'Other' || (!found && selectedGrade) ? 'selected' : ''}>Other...</option>`;
-  return html;
-}
-
-function renderInventory() {
-  const container = document.getElementById('inventory-list');
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  if (inv.length === 0) {
-    inv.push({ name: 'Class A', size: '9"x4"x3"', price: '' });
-    inv.push({ name: 'Class B', size: '9"x4"x3"', price: '' });
-    localStorage.setItem('block_inventory', JSON.stringify(inv));
-  }
-  container.innerHTML = '';
-  inv.forEach((item, i) => {
-    const row = document.createElement('div');
-    row.className = 'inventory-item-row';
-    row.innerHTML = `
-      <label style="font-size:0.75rem;color:var(--mid);font-weight:600;">Item Name / Grade</label>
-      <input type="text" value="${escHtml(item.name)}" onchange="updateInventoryItem(${i},'name',this.value)" placeholder="e.g. Class A"/>
-      <label style="font-size:0.75rem;color:var(--mid);font-weight:600;">Default Size</label>
-      <input type="text" value="${escHtml(item.size)}" onchange="updateInventoryItem(${i},'size',this.value)" placeholder="e.g. 9x4x3"/>
-      <label style="font-size:0.75rem;color:var(--mid);font-weight:600;">Default Price (₹)</label>
-      <input type="number" step="0.01" value="${item.price}" onchange="updateInventoryItem(${i},'price',this.value)" placeholder="0.00"/>
-      <button class="btn-remove" style="position:absolute;top:12px;right:12px;" onclick="removeInventoryItem(${i})">×</button>
-    `;
-    container.appendChild(row);
-  });
-}
-
-function updateInventoryItem(index, field, value) {
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  if (!inv[index]) return;
-  inv[index][field] = value;
-  localStorage.setItem('block_inventory', JSON.stringify(inv));
-  renderSidebarItems();
-}
-
-function addInventoryItem() {
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  inv.push({ name: 'New Item', size: '', price: '' });
-  localStorage.setItem('block_inventory', JSON.stringify(inv));
-  renderInventory();
-  renderSidebarItems();
-}
-
-function removeInventoryItem(index) {
-  if (!confirm('Remove this item from inventory?')) return;
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  inv.splice(index, 1);
-  localStorage.setItem('block_inventory', JSON.stringify(inv));
-  renderInventory();
-  renderSidebarItems();
-}
-
-document.getElementById('overlay').onclick = function() {
-  document.getElementById('history-drawer').classList.remove('open');
-  document.getElementById('settings-drawer').classList.remove('open');
-  document.getElementById('inventory-drawer').classList.remove('open');
-  this.classList.remove('show');
-};
-
 </script>
 <script>
   if ('serviceWorker' in navigator) {
