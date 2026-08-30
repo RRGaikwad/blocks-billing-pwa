@@ -554,6 +554,10 @@
       <p>Fill the form · Preview live · Download</p>
       
       <div class="sidebar-actions">
+        <button class="btn-action" onclick="newInvoice()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          New
+        </button>
         <button class="btn-action" onclick="saveToHistory()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Save
@@ -564,7 +568,7 @@
         </button>
         <button class="btn-action" onclick="resetForm()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          Reset
+          Clear All
         </button>
       </div>
     </div>
@@ -1235,7 +1239,7 @@ function saveToHistory() {
   renderHistory();
   
   if (confirm('Invoice saved. Start a new invoice?')) {
-    resetForm(true);
+    newInvoice(true);
   }
 }
 
@@ -1341,6 +1345,34 @@ function deleteInvoice(e, id) {
   history = history.filter(i => i.id !== id);
   localStorage.setItem('block_history', JSON.stringify(history));
   renderHistory();
+}
+
+function newInvoice(force = false) {
+  if (!force && !confirm('Start a new invoice? This will clear customer and item details.')) return;
+  
+  document.getElementById('f-inv-no').value = getNextInvoiceNumber();
+  const now = new Date();
+  document.getElementById('f-date').value = now.toISOString().slice(0,10);
+  document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+  
+  document.getElementById('f-customer').value = '';
+  document.getElementById('f-cust-contact').value = '';
+  document.getElementById('f-cust-phone').value = '';
+  document.getElementById('f-buyer-gstin').value = '';
+  
+  document.getElementById('f-trans-veh').value = '';
+  document.getElementById('f-trans-freight').value = '';
+  document.getElementById('f-trans-addr').value = '';
+  document.getElementById('f-trans-driver').value = '';
+  
+  document.getElementById('f-inwords').value = '';
+  
+  items = [{ grade: 'Class A', customGrade: '', size: '9"x4"x3"', desc: '', price: '', units: '1', hsn: '6815', gstRate: '0', cgstRate: '0', sgstRate: '0', igstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }];
+  
+  renderSidebarItems();
+  updatePreview();
+  saveCurrentForm();
+  if (!force) showToast('Started New Invoice ✓');
 }
 
 function resetForm(internal = false) {
