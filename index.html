@@ -11,95 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Block Billing PWA – Invoice Generator</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
-function toggleSettings() {
-  const drawer = document.getElementById('settings-drawer');
-  const overlay = document.getElementById('overlay');
-  drawer.classList.toggle('open');
-  if (!document.getElementById('inventory-drawer').classList.contains('open') && !document.getElementById('history-drawer').classList.contains('open')) {
-    if (drawer.classList.contains('open')) {
-      overlay.classList.add('show');
-    } else {
-      overlay.classList.remove('show');
-    }
-  }
-}
-
-function toggleInventory() {
-  const drawer = document.getElementById('inventory-drawer');
-  const overlay = document.getElementById('overlay');
-  drawer.classList.toggle('open');
-  if (drawer.classList.contains('open')) {
-    overlay.classList.add('show');
-    renderInventory();
-  } else {
-    if (!document.getElementById('settings-drawer').classList.contains('open') && !document.getElementById('history-drawer').classList.contains('open')) {
-      overlay.classList.remove('show');
-    }
-  }
-}
-
-function getInventoryOptions(selectedGrade) {
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  let html = '';
-  let found = false;
-  inv.forEach(item => {
-    if (item.name === selectedGrade) found = true;
-    html += \`<option value="\${escHtml(item.name)}" \${item.name === selectedGrade ? 'selected' : ''}>\${escHtml(item.name)}</option>\`;
-  });
-  html += \`<option value="Other" \${selectedGrade === 'Other' || (!found && selectedGrade) ? 'selected' : ''}>Other...</option>\`;
-  return html;
-}
-
-function renderInventory() {
-  const container = document.getElementById('inventory-list');
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  if (inv.length === 0) {
-    inv.push({ name: 'Class A', size: '9"x4"x3"', price: '' });
-    inv.push({ name: 'Class B', size: '9"x4"x3"', price: '' });
-    localStorage.setItem('block_inventory', JSON.stringify(inv));
-  }
-  container.innerHTML = '';
-  inv.forEach((item, i) => {
-    container.innerHTML += \`
-      <div class="inventory-item-row">
-        <label style="font-size:0.75rem; color:var(--mid); font-weight:600;">Item Name / Grade</label>
-        <input type="text" value="\${escHtml(item.name)}" onchange="updateInventoryItem(\${i}, 'name', this.value)" placeholder="e.g. Class A" />
-        <label style="font-size:0.75rem; color:var(--mid); font-weight:600;">Default Size</label>
-        <input type="text" value="\${escHtml(item.size)}" onchange="updateInventoryItem(\${i}, 'size', this.value)" placeholder="e.g. 230x110x75" />
-        <label style="font-size:0.75rem; color:var(--mid); font-weight:600;">Default Price</label>
-        <input type="number" step="0.01" value="\${item.price}" onchange="updateInventoryItem(\${i}, 'price', this.value)" placeholder="0.00" />
-        <button class="btn-remove" style="position:absolute; top:12px; right:12px;" onclick="removeInventoryItem(\${i})">x</button>
-      </div>
-    \`;
-  });
-}
-
-function updateInventoryItem(index, field, value) {
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  inv[index][field] = value;
-  localStorage.setItem('block_inventory', JSON.stringify(inv));
-  renderSidebarItems(); 
-}
-
-function addInventoryItem() {
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  inv.push({ name: 'New Item', size: '', price: '' });
-  localStorage.setItem('block_inventory', JSON.stringify(inv));
-  renderInventory();
-  renderSidebarItems();
-}
-
-function removeInventoryItem(index) {
-  if (!confirm('Remove this item from inventory?')) return;
-  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
-  inv.splice(index, 1);
-  localStorage.setItem('block_inventory', JSON.stringify(inv));
-  renderInventory();
-  renderSidebarItems();
-}
-
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   /* ── RESET & TOKENS ── */
@@ -2214,6 +2126,113 @@ function showToast(msg) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2400);
 }
+
+/* ──────────────────────────────────────────────
+   SETTINGS & INVENTORY
+────────────────────────────────────────────── */
+function toggleSettings() {
+  const drawer = document.getElementById('settings-drawer');
+  const overlay = document.getElementById('overlay');
+  drawer.classList.toggle('open');
+  if (!document.getElementById('inventory-drawer').classList.contains('open') &&
+      !document.getElementById('history-drawer').classList.contains('open')) {
+    if (drawer.classList.contains('open')) {
+      overlay.classList.add('show');
+    } else {
+      overlay.classList.remove('show');
+    }
+  }
+}
+
+function toggleInventory() {
+  const drawer = document.getElementById('inventory-drawer');
+  const overlay = document.getElementById('overlay');
+  drawer.classList.toggle('open');
+  if (drawer.classList.contains('open')) {
+    overlay.classList.add('show');
+    renderInventory();
+  } else {
+    if (!document.getElementById('settings-drawer').classList.contains('open') &&
+        !document.getElementById('history-drawer').classList.contains('open')) {
+      overlay.classList.remove('show');
+    }
+  }
+}
+
+function getInventoryOptions(selectedGrade) {
+  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
+  if (inv.length === 0) {
+    inv.push({ name: 'Class A', size: '9"x4"x3"', price: '' });
+    inv.push({ name: 'Class B', size: '9"x4"x3"', price: '' });
+    localStorage.setItem('block_inventory', JSON.stringify(inv));
+  }
+  let html = '';
+  let found = false;
+  inv.forEach(item => {
+    if (item.name === selectedGrade) found = true;
+    html += `<option value="${escHtml(item.name)}" ${item.name === selectedGrade ? 'selected' : ''}>${escHtml(item.name)}</option>`;
+  });
+  html += `<option value="Other" ${selectedGrade === 'Other' || (!found && selectedGrade) ? 'selected' : ''}>Other...</option>`;
+  return html;
+}
+
+function renderInventory() {
+  const container = document.getElementById('inventory-list');
+  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
+  if (inv.length === 0) {
+    inv.push({ name: 'Class A', size: '9"x4"x3"', price: '' });
+    inv.push({ name: 'Class B', size: '9"x4"x3"', price: '' });
+    localStorage.setItem('block_inventory', JSON.stringify(inv));
+  }
+  container.innerHTML = '';
+  inv.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'inventory-item-row';
+    row.innerHTML = `
+      <label style="font-size:0.75rem;color:var(--mid);font-weight:600;">Item Name / Grade</label>
+      <input type="text" value="${escHtml(item.name)}" onchange="updateInventoryItem(${i},'name',this.value)" placeholder="e.g. Class A"/>
+      <label style="font-size:0.75rem;color:var(--mid);font-weight:600;">Default Size</label>
+      <input type="text" value="${escHtml(item.size)}" onchange="updateInventoryItem(${i},'size',this.value)" placeholder="e.g. 9x4x3"/>
+      <label style="font-size:0.75rem;color:var(--mid);font-weight:600;">Default Price (₹)</label>
+      <input type="number" step="0.01" value="${item.price}" onchange="updateInventoryItem(${i},'price',this.value)" placeholder="0.00"/>
+      <button class="btn-remove" style="position:absolute;top:12px;right:12px;" onclick="removeInventoryItem(${i})">×</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function updateInventoryItem(index, field, value) {
+  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
+  if (!inv[index]) return;
+  inv[index][field] = value;
+  localStorage.setItem('block_inventory', JSON.stringify(inv));
+  renderSidebarItems();
+}
+
+function addInventoryItem() {
+  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
+  inv.push({ name: 'New Item', size: '', price: '' });
+  localStorage.setItem('block_inventory', JSON.stringify(inv));
+  renderInventory();
+  renderSidebarItems();
+}
+
+function removeInventoryItem(index) {
+  if (!confirm('Remove this item from inventory?')) return;
+  const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
+  inv.splice(index, 1);
+  localStorage.setItem('block_inventory', JSON.stringify(inv));
+  renderInventory();
+  renderSidebarItems();
+}
+
+document.getElementById('overlay').onclick = function() {
+  document.getElementById('history-drawer').classList.remove('open');
+  document.getElementById('settings-drawer').classList.remove('open');
+  document.getElementById('inventory-drawer').classList.remove('open');
+  this.classList.remove('show');
+};
+
 </script>
 <script>
   if ('serviceWorker' in navigator) {
