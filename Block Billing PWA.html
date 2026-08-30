@@ -658,7 +658,7 @@ function removeInventoryItem(index) {
 <div class="app">
 
   <!-- ══ HISTORY DRAWER ══ -->
-  <div class="overlay" id="overlay" onclick="toggleHistory()"></div>
+  <div class="overlay" id="overlay"></div>
   <div class="history-drawer" id="history-drawer">
     <div class="history-header">
       <h2>Invoice History</h2>
@@ -669,6 +669,30 @@ function removeInventoryItem(index) {
         <input type="text" placeholder="Search by number or customer..." oninput="searchHistory(this.value)"/>
       </div>
       <div id="history-list"></div>
+    </div>
+  </div>
+
+  <div class="settings-drawer" id="settings-drawer">
+    <div class="settings-header">
+      <h2>Settings</h2>
+      <button class="btn-close-history" onclick="toggleSettings()">×</button>
+    </div>
+    <div class="settings-body">
+      <button class="settings-btn" onclick="toggleSettings(); toggleHistory();">🕘 Invoice History</button>
+      <button class="settings-btn" onclick="toggleSettings(); toggleInventory();">📦 Manage Items Info</button>
+      <button class="settings-btn" onclick="toggleSettings(); resetForm();" style="color:#ef4444;">🗑 Clear All Data</button>
+    </div>
+  </div>
+
+  <div class="inventory-drawer" id="inventory-drawer">
+    <div class="inventory-header">
+      <h2>Manage Items</h2>
+      <button class="btn-close-history" onclick="toggleInventory()">×</button>
+    </div>
+    <div class="inventory-body">
+      <p style="font-size:0.8rem; color:#666; margin-bottom:15px;">Add products here to auto-fill Size &amp; Price when selected on an invoice.</p>
+      <div id="inventory-list"></div>
+      <button class="btn-action" style="width:100%; justify-content:center; background:var(--accent); margin-top:10px;" onclick="addInventoryItem()">+ Add New Item</button>
     </div>
   </div>
 
@@ -1618,6 +1642,12 @@ function updateItemGrade(i, val) {
   items[i].grade = val;
   if (val !== 'Other') {
     items[i].customGrade = '';
+    const inv = JSON.parse(localStorage.getItem('block_inventory') || '[]');
+    const match = inv.find(m => m.name === val);
+    if (match) {
+      items[i].size = match.size || items[i].size;
+      items[i].price = match.price || items[i].price;
+    }
   }
   renderSidebarItems();
   updatePreview();
@@ -1649,6 +1679,23 @@ function updateItem(i, field, val, el) {
   const amount = calcAmount(items[i]);
   amtCell.textContent = amount > 0 ? '₹' + amount.toFixed(2) : '—';
   
+  saveCurrentForm();
+}
+
+function addItem() {
+  items.push(getDefaultItem());
+  renderSidebarItems();
+  updatePreview();
+}
+
+function removeItem(i) {
+  if (items.length === 1) {
+    items[0] = getDefaultItem();
+  } else {
+    items.splice(i, 1);
+  }
+  renderSidebarItems();
+  updatePreview();
   saveCurrentForm();
 }
 
